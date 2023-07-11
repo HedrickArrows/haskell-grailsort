@@ -1,0 +1,54 @@
+cabal-version:      3.0
+name:               grailSort
+version:            0.1.0.8
+synopsis:           Stable in-place sorting algorithm with time complexity O(n log n)
+
+-- A longer description of the package.
+ description: A proper implementation of GrailSort sorting algorithm that allows to get a list of elements
+            in a non-descending order as a result of stable and in-place operations with O(n log n) time complexity.
+            In addition, a "naive" approach that uses no methods guaranteeing no additional memory is used is also included.
+homepage:            
+
+-- A URL where users can report bugs.
+-- bug-reports:
+license:            MIT
+license-file:       LICENSE
+author:             Mihnik
+maintainer:          
+
+-- A copyright notice.
+copyright:  Copyright (c) 2013 Andrey Astrelin,
+            Copyright (c) 2020 The Holy Grail Sort Project
+-- category:
+extra-source-files: CHANGELOG.md
+
+common warnings
+    ghc-options: -Wall
+
+library
+    import:           warnings
+    exposed-modules:  GrailSort,
+                      GrailSort.Naive
+
+    -- Modules included in this library but not exported.
+    -- other-modules:
+
+    -- LANGUAGE extensions used by modules in this package.
+    -- other-extensions:
+    build-depends:    base ^>=4.14.3.0,
+                      vector ^>=0.12.3.1,
+                      primitive ^>=0.7.3.0,
+                      extra ^>=1.7.10
+    hs-source-dirs:   lib
+    default-language: Haskell2010
+
+test-suite grailSort-test
+    import:           warnings
+    default-language: Haskell2010
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   test
+    main-is:          Main.hs
+    build-depends:    base ^>=4.14.3.0,
+                      random-shuffle ^>=0.0.4,
+                      grailSort,
+                      extra ^>=1.7.10
