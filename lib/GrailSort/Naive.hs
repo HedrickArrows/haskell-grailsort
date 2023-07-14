@@ -53,6 +53,11 @@ Mihnik's Haskell "naive" implementation of Grailsort (purely functional, no in-p
 
 Rewritten without any magic of complicated modules, based on thatsOven's Python version
 
+------ IMPORTANT NOTE: Due to the purely functional approach, every operation on the array creates an accordingly modified copy.
+------ This can take a lot of memory should the input list be large. Keep that in mind.
+------ Tested list length: 10'000 elements
+------ Time: around 10 minutes
+
 Current status: Done
 -}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
@@ -1010,26 +1015,20 @@ grailLazyStableSort'' array start length mergeLen
 grailCommonSort :: Ord a => [a] -> Int -> Int -> Maybe [a] -> Int -> [a]
 grailCommonSort array start length extBuffer extBufferLen
     | length < 16 = grailInsertSort array start length
-    | otherwise = let
-        blockLen = until (\x -> x^2 >= length) (*2) 1
-        keyLen = ((length - 1) `quot` blockLen) +1
-        idealKeys = keyLen + blockLen
-        (keysFound, array') = grailCollectKeys array start length idealKeys
-
-        in
-            if keysFound < idealKeys
-            then if keysFound < 4
-                then grailLazyStableSort array start length
-                else let
-                    keyLen' = until (<= blockLen) (`quot` 2) blockLen
-                    blockLen' = 0
-                    idealBuffer = False
-                    in
-                        grailCommonSort' array' start length extBuffer extBufferLen blockLen' keyLen' idealBuffer
-            else let
-                idealBuffer = True
-                in
-                    grailCommonSort' array' start length extBuffer extBufferLen blockLen keyLen idealBuffer
+    | keysFound < idealKeys = if keysFound < 4
+        then grailLazyStableSort array start length
+        else let
+            keyLen' = until (<= keysFound) (`quot` 2) blockLen
+            blockLen' = 0
+            idealBuffer = False
+            in
+                grailCommonSort' array' start length extBuffer extBufferLen blockLen' keyLen' idealBuffer
+    | otherwise = grailCommonSort' array' start length extBuffer extBufferLen blockLen keyLen True 
+        where
+            blockLen = until (\x -> x^2 >= length) (*2) 1
+            keyLen = ((length - 1) `quot` blockLen) +1
+            idealKeys = keyLen + blockLen
+            (keysFound, array') = grailCollectKeys array start length idealKeys
 
 grailCommonSort' :: Ord a => [a] -> Int -> Int -> Maybe [a] -> Int -> Int -> Int -> Bool -> [a]
 grailCommonSort' array start length extBuffer extBufferLen blockLen keyLen idealBuffer =
@@ -1077,6 +1076,7 @@ grailSortStaticOOP array start length =
         extBufferLen = 512
         extBuffer = replicate extBufferLen var
     in grailCommonSort array start length (Just extBuffer) extBufferLen
+    
 grailSortDynamicOOP :: Ord a => [a] -> Int -> Int -> [a]
 grailSortDynamicOOP array start length =
     let var = head array

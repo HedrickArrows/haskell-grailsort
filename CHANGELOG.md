@@ -1,5 +1,9 @@
 # Revision history for grailsort
 
+## 0.1.0.9 -- 2023-07-14
+
+* Minor fixes
+
 ## 0.1.0.8 -- 2023-07-11
 
 * The fully functional implementation is complete and working.
