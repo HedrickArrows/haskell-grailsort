@@ -52,17 +52,16 @@ Special thanks to "The Studio" Discord community!
 Mihnik's Haskell "naive" implementation of Grailsort (purely functional, no in-place guarantee)
 
 Rewritten without any magic of complicated modules, based on thatsOven's Python version
+NOTE: despite them using name 'array', they are lists
 
------- IMPORTANT NOTE: Due to the purely functional approach, every operation on the array creates an accordingly modified copy.
+------ IMPORTANT NOTE: Due to the purely functional approach, every operation on the list creates an accordingly modified copy.
 ------ This can take a lot of memory should the input list be large. Keep that in mind.
------- Tested list length: 10'000 elements
------- Time: around 10 minutes
 
 Current status: Done
 -}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
-module GrailSort.Naive  (grailSortInPlace, grailSortStaticOOP, grailSortDynamicOOP)where
+module GrailSort.Naive  (grailSortInPlace, grailSortStaticOOP, grailSortDynamicOOP) where
 import Data.Maybe (isJust, fromJust)
 
 --support function
@@ -101,23 +100,25 @@ grailBlockSwap array x y blockLen =
       a = min x y
       b = max x y
     in
-        grailBlockSwap' array a b blockLen
+       take a array ++ drop b (take (b + blockLen) array) ++ drop (a + blockLen) (take b array) ++ drop a (take (a + blockLen) array) ++ drop (b + blockLen) array
+       -- grailBlockSwap' array a b blockLen
 --FIXED DUPLICATION MATTER, TO BE FURTHER SEEN AS TO WHY THAT WAS THE CASE        
 --SUSPECTED BOTH BLOCKS CONTAINING THE SAME ELEMENTS
         --take a array ++ take blockLen (drop b array) ++ take (b - a - blockLen) (drop (a + blockLen) array) ++ take blockLen (drop a array) ++ drop (b + blockLen) array
 
-grailBlockSwap' :: [a] -> Int -> Int -> Int -> [a]
-grailBlockSwap' array a b blockLen
-    | blockLen == 0 = array
-    | otherwise = grailBlockSwap' (grailSwap array a b) (a+1) (b+1) (blockLen -1)
+--grailBlockSwap' :: [a] -> Int -> Int -> Int -> [a]
+--grailBlockSwap' array a b blockLen
+--    | blockLen == 0 = array
+--    | otherwise = grailBlockSwap' (grailSwap array a b) (a+1) (b+1) (blockLen -1)
 
 
 
 grailRotate :: [a] -> Int -> Int -> Int -> [a]
-grailRotate array start leftLen rightLen
-    | leftLen <= 0 || rightLen <= 0 = array
-    | leftLen <= rightLen = grailRotate (grailBlockSwap array start (start + leftLen) leftLen) (start + leftLen) leftLen (rightLen - leftLen)
-    | otherwise = grailRotate (grailBlockSwap array (start + leftLen - rightLen) (start + leftLen) rightLen) start (leftLen - rightLen) rightLen
+grailRotate array start leftLen rightLen =
+    take start array ++ drop (start+ leftLen) (take (start + rightLen + leftLen) array) ++ drop start (take (start + leftLen) array) ++ drop (start + leftLen + rightLen) array
+-- | leftLen <= 0 || rightLen <= 0 = array
+-- | leftLen <= rightLen = grailRotate (grailBlockSwap array start (start + leftLen) leftLen) (start + leftLen) leftLen (rightLen - leftLen)
+-- | otherwise = grailRotate (grailBlockSwap array (start + leftLen - rightLen) (start + leftLen) rightLen) start (leftLen - rightLen) rightLen
 
 
 
@@ -350,7 +351,7 @@ grailBuildInPlace' array start length currentLen bufferLen mergeLen
                 then grailMergeForwards array' mergeIndex mergeLen (leftOver - mergeLen) bufferOffset
                 else grailRotate array' (mergeIndex - mergeLen) mergeLen leftOver
         in
-            grailBuildInPlace' array'' (start - mergeLen) length currentLen bufferLen (mergeLen*2)
+            grailBuildInPlace' array'' (start - mergeLen) length currentLen bufferLen fullMerge
     | otherwise =
         let
         fullMerge = 2 * bufferLen
@@ -602,7 +603,7 @@ grailSmartLazyMergeLeft array start leftLen leftOrigin rightLen middle currBlock
         in
             if rightLen == 0
             then (array', leftLen, currBlockOrigin)
-            else let (start'', leftLen') = until (\(s, lL)-> not (lL /= 0 && array!!s <= array!!lL))
+            else let (start'', leftLen') = until (\(s, lL)-> not (lL /= 0 && array!!s <= array!!middle))
                         (\(s, lL) -> (s+1, lL -1)) (start'+1, leftLen-1)
                 in
                     grailSmartLazyMergeLeft array' start'' leftLen' leftOrigin rightLen' middle' currBlockLen currBlockOrigin
@@ -708,9 +709,10 @@ grailMergeBlocks' array firstKey medianKey blockCount blockLen lastMergeBlocks l
                         | otherwise = let
                                 currBlockLen' = currBlockLen + blockLen * lastMergeBlocks
                             in (array, currBlock, currBlockLen', currBlockOrigin)
-                    array''' = grailMergeForwards array'' currBlock'' currBlockLen'' lastLen blockLen
+                    --array''' = grailMergeForwards array'' currBlock'' currBlockLen'' lastLen blockLen
                 in
-                    array''' --(array''', currBlockLen'', currBlockOrigin'') 
+                    grailMergeForwards array'' currBlock'' currBlockLen'' lastLen blockLen
+                    --array''' --(array''', currBlockLen'', currBlockOrigin'') 
             else --let
                     --array' = 
                         grailBlockSwap array buffer currBlock currBlockLen
@@ -747,9 +749,9 @@ grailLazyMergeBlocks' array firstKey medianKey start blockCount blockLen lastMer
                 (currBlock', currBlockLen', currBlockOrigin')
                         | currBlockOrigin == RIGHT = (nextBlock, blockLen * lastMergeBlocks, LEFT)
                         | otherwise = (currBlock, currBlockLen + blockLen * lastMergeBlocks, currBlockOrigin)
-                array' = grailLazyMerge array currBlock' currBlockLen' lastLen
+                --array' = grailLazyMerge array currBlock' currBlockLen' lastLen
                 in
-                    array' --(array', currBlockLen', currBlockOrigin')
+                    grailLazyMerge array currBlock' currBlockLen' lastLen --array' --(array', currBlockLen', currBlockOrigin')
             else array --(array, currBlockLen, currBlockOrigin)
 
 
@@ -917,9 +919,7 @@ grailCombineBlocks array firstKey start length subarrayLen blockLen buffer extBu
             else (length, lastSubarrays)
     in
         if buffer && blockLen <= extBufferLen
-        then
-            grailCombineOutOfPlace array firstKey start length' subarrayLen blockLen mergeCount lastSubarrays' (fromJust extBuffer) extBufferLen
-            --(grailCombineInPlace array firstKey start length' subarrayLen blockLen mergeCount lastSubarrays' buffer, extBuffer)
+        then grailCombineOutOfPlace array firstKey start length' subarrayLen blockLen mergeCount lastSubarrays' (fromJust extBuffer) extBufferLen
         else (grailCombineInPlace array firstKey start length' subarrayLen blockLen mergeCount lastSubarrays' buffer, Nothing)
 
 

@@ -1,5 +1,17 @@
 # Revision history for grailsort
 
+## 0.1.1.0 -- 2023-09-18
+
+* Minor tweaks in GrailSort.Naive.grailRotate and GrailSort.Naive.grailBlockSwap to reduce memory clutter
+
+## 0.1.0.11 -- 2023-08-19
+
+* Including Data.STRef to simplify code conversion
+
+## 0.1.0.10 -- 2023-08-09
+
+* Starting properer rewriting of the version using MVectors, including desugaring where it can work
+
 ## 0.1.0.9 -- 2023-07-14
 
 * Minor fixes
