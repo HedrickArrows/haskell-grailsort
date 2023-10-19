@@ -57,7 +57,9 @@ NOTE: despite them using name 'array', they are lists
 ------ IMPORTANT NOTE: Due to the purely functional approach, every operation on the list creates an accordingly modified copy.
 ------ This can take a lot of memory should the input list be large. Keep that in mind.
 
-Current status: Done
+Current status: WIP
+Known issues: 
+    - something causes duplication
 -}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
@@ -99,23 +101,42 @@ grailBlockSwap array x y blockLen =
     let
       a = min x y
       b = max x y
+      --diff = (a + blockLen - b)
+      --beginning = take a array
+      --aBlock = drop a (take (a + blockLen) array)
+      --aBlock1 = drop a (take (a+diff) array)
+      --aBlock2 = drop (a + diff) (take (a + blockLen - diff) array)
+      --bBlock = drop b (take (b + blockLen) array)
+      --between = drop (a + blockLen) (take b array)
+      --finish = drop (b + blockLen) array
     in
-       take a array ++ drop b (take (b + blockLen) array) ++ drop (a + blockLen) (take b array) ++ drop a (take (a + blockLen) array) ++ drop (b + blockLen) array
-       -- grailBlockSwap' array a b blockLen
+        --if diff <= 0
+        --then beginning ++ bBlock ++ between ++ aBlock ++ finish
+        --else beginning ++ bBlock  ++ aBlock2 ++ aBlock1 ++ finish
+        --beginning ++ bBlock ++ between ++ aBlock ++ finish
+       --take a array ++ drop b (take (b + blockLen) array) ++ drop (a + blockLen) (take b array) ++ drop a (take (a + blockLen) array) ++ drop (b + blockLen) array
+       grailBlockSwap' array a b blockLen
 --FIXED DUPLICATION MATTER, TO BE FURTHER SEEN AS TO WHY THAT WAS THE CASE        
 --SUSPECTED BOTH BLOCKS CONTAINING THE SAME ELEMENTS
         --take a array ++ take blockLen (drop b array) ++ take (b - a - blockLen) (drop (a + blockLen) array) ++ take blockLen (drop a array) ++ drop (b + blockLen) array
 
---grailBlockSwap' :: [a] -> Int -> Int -> Int -> [a]
---grailBlockSwap' array a b blockLen
---    | blockLen == 0 = array
---    | otherwise = grailBlockSwap' (grailSwap array a b) (a+1) (b+1) (blockLen -1)
+grailBlockSwap' :: [a] -> Int -> Int -> Int -> [a]
+grailBlockSwap' array a b blockLen
+    | blockLen == 0 = array
+    | otherwise = grailBlockSwap' (grailSwap array a b) (a+1) (b+1) (blockLen -1)
 
 
 
 grailRotate :: [a] -> Int -> Int -> Int -> [a]
 grailRotate array start leftLen rightLen =
-    take start array ++ drop (start+ leftLen) (take (start + rightLen + leftLen) array) ++ drop start (take (start + leftLen) array) ++ drop (start + leftLen + rightLen) array
+    let 
+        beginning = take start array
+        leftBlock = drop start (take (start + leftLen) array)
+        rightBlock = drop (start+ leftLen) (take (start + rightLen + leftLen) array)
+        finish = drop (start + leftLen + rightLen) array
+    in
+        beginning ++ rightBlock ++ leftBlock ++ finish
+    --take start array ++ drop (start+ leftLen) (take (start + rightLen + leftLen) array) ++ drop start (take (start + leftLen) array) ++ drop (start + leftLen + rightLen) array
 -- | leftLen <= 0 || rightLen <= 0 = array
 -- | leftLen <= rightLen = grailRotate (grailBlockSwap array start (start + leftLen) leftLen) (start + leftLen) leftLen (rightLen - leftLen)
 -- | otherwise = grailRotate (grailBlockSwap array (start + leftLen - rightLen) (start + leftLen) rightLen) start (leftLen - rightLen) rightLen
