@@ -50,13 +50,15 @@ Special thanks to "The Studio" Discord community!
 
 {-
 Tester for GrailSort's implementation in Haskell by Mihnik a.k.a Hedrick Arrows
-It is quite a mess I know, but that's because a lot of stuff was tested directly here
+It is quite a mess, I know, but that's because a lot of stuff was tested directly here
+
+Current status: WIP
 -}
 
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# LANGUAGE BlockArguments #-}
 module Main (main) where
-import Debug.Trace ( trace )
+--import Debug.Trace ( trace )
 import GrailSort ( grailSortInPlace, grailSortStaticOOP, grailSortDynamicOOP )
 import GrailSort.Naive ( grailSortInPlace, grailSortStaticOOP, grailSortDynamicOOP )
 import System.Random.Shuffle ( shuffleM )
@@ -84,26 +86,56 @@ main = do
     --print $ GrailSort.Naive.grailSortInPlace testL 0 (length testL) --ALL WORKS HERE
     --putStrLn "------------------"
     --print $ GrailSort.Naive.grailSortStaticOOP testL 0 (length testL)
+    putStrLn "Shuffled lists (no duplicates)"
     putStrLn "Naive Implementation - In-Place"
-    generalLoop GrailSort.Naive.grailSortInPlace 100
+    shuffleLoop GrailSort.Naive.grailSortInPlace 100
 
     putStrLn "Naive Implementation - Out-Of-Place (Static)"
-    generalLoop GrailSort.Naive.grailSortStaticOOP 100
+    shuffleLoop GrailSort.Naive.grailSortStaticOOP 100
 
     putStrLn "Naive Implementation - Out-Of-Place (Dynamic)"
-    generalLoop GrailSort.Naive.grailSortDynamicOOP 100
+    shuffleLoop GrailSort.Naive.grailSortDynamicOOP 100
 
-    putStrLn  "Done"
+  
+    putStrLn "Mutable Vector Implementation - In-Place"
+    shuffleLoop GrailSort.grailSortInPlace 100
 
-generalLoop :: (Enum a3, Num a3, Num t2, Ord a1, Show a1) => ([a3] -> t2 -> Int -> [a1]) -> a3 -> IO ()
-generalLoop foo amount = do
-    res <- forM [17..amount] $ \item -> do
+    putStrLn "Mutable Vector Implementation - Out-Of-Place (Static)"
+    shuffleLoop GrailSort.grailSortStaticOOP 100
+
+    putStrLn "Mutable Vector Implementation - Out-Of-Place (Dynamic)"
+    shuffleLoop GrailSort.grailSortDynamicOOP 100
+
+    putStrLn "Reversed lists (no duplicates)"
+    putStrLn "Naive Implementation - In-Place"
+    reverseLoop GrailSort.Naive.grailSortInPlace 100
+
+    putStrLn "Naive Implementation - Out-Of-Place (Static)"
+    reverseLoop GrailSort.Naive.grailSortStaticOOP 100
+
+    putStrLn "Naive Implementation - Out-Of-Place (Dynamic)"
+    reverseLoop GrailSort.Naive.grailSortDynamicOOP 100
+
+    putStrLn  "All tasks done"
+
+shuffleLoop :: (Enum a, Num t2, Ord a1, Show a1, Show a, Num a) => ([a] -> t2 -> Int -> [a1]) -> a -> IO ()
+shuffleLoop foo amount = do
+    res <- forM [lower..amount] $ \item -> do
         testList <- System.Random.Shuffle.shuffleM [1..item]
         testFunc foo testList
-    putStrLn $ (\(s,f,e) ->  "Successes: " ++ show s ++ " | Failures: " ++ show f ++ " | Errors: " ++ show e) $ foldl' (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res
+    putStrLn $ (\(s,f,e) ->  "(" ++ show (amount - lower + 1) ++" tests) Successes: " ++ show s ++ " | Failures: " ++ show f ++ " | Errors: " ++ show e) $ foldl' (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res
     putStrLn  "Done"
+    where
+      lower = 16
 
-
+reverseLoop :: (Enum a, Num t2, Ord a1, Show a1, Show a, Num a) => ([a] -> t2 -> Int -> [a1]) -> a -> IO ()
+reverseLoop foo amount = do
+    res <- forM [lower..amount] $ \item ->
+        testFunc foo $ reverse [1..item]
+    putStrLn $ (\(s,f,e) ->   "(" ++ show (amount - lower + 1) ++" tests) Successes: " ++ show s ++ " | Failures: " ++ show f ++ " | Errors: " ++ show e) $ foldl' (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res
+    putStrLn  "Done"
+    where
+      lower = 16
 
 testFunc :: (Num a2, Num b, Num c, Show a1, Foldable t1, Num t2, Ord a1) => (t1 a3 -> t2 -> Int -> [a1]) -> t1 a3 -> IO (a2, b, c)
 testFunc foo testList = do
@@ -114,21 +146,21 @@ testFunc foo testList = do
       then
         if allSorted eq
         then do
-            putStrLn $ "List " ++ show val ++ " sorted"
+            --putStrLn $ "List " ++ show val ++ " sorted"
             return (1,0,0)
         else do
             let spot = testSpot (head eq) (tail eq) 0
-            putStrLn $ "List " ++ show val ++ " not sorted (starting on pos " ++ show spot  ++ ") " ++ show eq
+            --putStrLn $ "List " ++ show val ++ " not sorted (starting on pos " ++ show spot  ++ ") " -- ++ show eq
             return (0,1,0)
           --print eq
     else do
-      putStrLn $ "Value: " ++ show val
+      --putStrLn $ "Value: " ++ show val
       return (0,0,1)
     where
       handler :: SomeException -> IO Bool
       handler ex = do
-        putStrLn "Exception caught "
-        print ex
+        --putStrLn "Exception caught "
+        --print ex
         return False
 
 
@@ -136,10 +168,10 @@ testFunc foo testList = do
 testSpot :: (Ord a) => a -> [a] -> Int -> Int
 testSpot _ [] _ = -1
 testSpot h t i =
-    let n = head t
+    let ht = head t
         tt = tail t
-    in if h <= n
-        then testSpot n tt (i + 1)
+    in if h <= ht
+        then testSpot ht tt (i + 1)
         else i
 
 

@@ -1,5 +1,9 @@
 # Revision history for grailsort
 
+## 0.1.1.1 -- 2023-11-14
+
+* Minor cleanup in the Naive code, rewritten the main file, still trying to make it work as it should
+
 ## 0.1.1.0 -- 2023-09-18
 
 * Minor tweaks in GrailSort.Naive.grailRotate and GrailSort.Naive.grailBlockSwap to reduce memory clutter
