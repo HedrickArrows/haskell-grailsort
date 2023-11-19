@@ -1,5 +1,9 @@
 # Revision history for grailsort
 
+## 0.2.0.0 -- 2023-11-19
+
+* Code no longer has major problems, requires major reordering to ensure the correct order of execution.
+
 ## 0.1.1.1 -- 2023-11-14
 
 * Minor cleanup in the Naive code, rewritten the main file, still trying to make it work as it should

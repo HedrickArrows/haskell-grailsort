@@ -363,9 +363,9 @@ grailBuildInPlace' array start length currentLen bufferLen mergeLen
         fullMerge = 2 * bufferLen
         lastBlock = length `rem` fullMerge
         lastOffset = start + length - lastBlock
-        array' = if lastBlock <= bufferLen
-            then grailRotate array lastOffset lastBlock bufferLen
-            else grailMergeBackwards array lastOffset bufferLen (lastBlock - bufferLen) bufferLen
+        array' 
+            | lastBlock <= bufferLen = grailRotate array lastOffset lastBlock bufferLen
+            | otherwise  = grailMergeBackwards array lastOffset bufferLen (lastBlock - bufferLen) bufferLen
         mergeIndex = lastOffset - fullMerge
         in
         snd $ until (\(index,_) -> index < start) (\(index, array'') ->
@@ -887,18 +887,16 @@ grailCombineOutOfPlace'' array start length blockLen extBuffer =
 
 
 grailCombineBlocks :: Ord a => [a] -> Int -> Int -> Int -> Int -> Int -> Bool -> Maybe [a] -> Int -> ([a], Maybe [a])
-grailCombineBlocks array firstKey start length subarrayLen blockLen buffer extBuffer extBufferLen =
-    let
+grailCombineBlocks array firstKey start length subarrayLen blockLen buffer extBuffer extBufferLen 
+    | buffer && blockLen <= extBufferLen = grailCombineOutOfPlace array firstKey start length' subarrayLen blockLen mergeCount lastSubarrays' (fromJust extBuffer) extBufferLen
+    | otherwise = (grailCombineInPlace array firstKey start length' subarrayLen blockLen mergeCount lastSubarrays' buffer, Nothing)
+    where
         fullMerge = 2 * subarrayLen
         mergeCount = length `quot` fullMerge
         lastSubarrays = length - fullMerge * mergeCount
-        (length', lastSubarrays') = if lastSubarrays <= subarrayLen
-            then (length - lastSubarrays, 0)
-            else (length, lastSubarrays)
-    in
-        if buffer && blockLen <= extBufferLen
-        then grailCombineOutOfPlace array firstKey start length' subarrayLen blockLen mergeCount lastSubarrays' (fromJust extBuffer) extBufferLen
-        else (grailCombineInPlace array firstKey start length' subarrayLen blockLen mergeCount lastSubarrays' buffer, Nothing)
+        (length', lastSubarrays') 
+            | lastSubarrays <= subarrayLen = (length - lastSubarrays, 0)
+            | otherwise = (length, lastSubarrays)
 
 
 
@@ -918,12 +916,12 @@ grailLazyMergeLeft array start leftLen rightLen middle
     | leftLen /= 0 = let
         mergeLen = grailBinarySearchLeft array middle rightLen (array!!start)
         test = mergeLen /= 0
-        array' = if test
-            then grailRotate array start leftLen mergeLen
-            else array
-        (start', rightLen', middle') = if test
-            then (start + mergeLen, rightLen - mergeLen, middle + mergeLen)
-            else (start, rightLen, middle)
+        array' 
+            | test = grailRotate array start leftLen mergeLen
+            | otherwise = array
+        (start', rightLen', middle') 
+            | test = (start + mergeLen, rightLen - mergeLen, middle + mergeLen)
+            | otherwise = (start, rightLen, middle)
         (start'', leftLen') = until (\(st,ll) -> not (ll /= 0 && (array'!!st) <= (array'!!middle'))) 
             (\(st,ll) -> (st+1,ll-1)) (start' +1, leftLen -1)
         in
@@ -937,9 +935,9 @@ grailLazyMergeRight array start leftLen rightLen end
     | rightLen /= 0 = let
         mergeLen = grailBinarySearchRight array start leftLen (array!!end)
         test = mergeLen /= leftLen
-        array' = if test
-            then grailRotate array (start + mergeLen) (leftLen - mergeLen) rightLen
-            else array
+        array' 
+            | test = grailRotate array (start + mergeLen) (leftLen - mergeLen) rightLen
+            | otherwise = array
         (end', leftLen') 
             | test = (end - (leftLen - mergeLen), mergeLen)
             | otherwise = (end, leftLen)

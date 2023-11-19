@@ -116,6 +116,15 @@ main = do
     putStrLn "Naive Implementation - Out-Of-Place (Dynamic)"
     reverseLoop GrailSort.Naive.grailSortDynamicOOP 100
 
+    putStrLn "Mutable Vector Implementation - In-Place"
+    reverseLoop GrailSort.grailSortInPlace 100
+
+    putStrLn "Mutable Vector Implementation - Out-Of-Place (Static)"
+    reverseLoop GrailSort.grailSortStaticOOP 100
+
+    putStrLn "Mutable Vector Implementation - Out-Of-Place (Dynamic)"
+    reverseLoop GrailSort.grailSortDynamicOOP 100
+
     putStrLn  "All tasks done"
 
 shuffleLoop :: (Enum a, Num t2, Ord a1, Show a1, Show a, Num a) => ([a] -> t2 -> Int -> [a1]) -> a -> IO ()
@@ -124,7 +133,7 @@ shuffleLoop foo amount = do
         testList <- System.Random.Shuffle.shuffleM [1..item]
         testFunc foo testList
     putStrLn $ (\(s,f,e) ->  "(" ++ show (amount - lower + 1) ++" tests) Successes: " ++ show s ++ " | Failures: " ++ show f ++ " | Errors: " ++ show e) $ foldl' (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res
-    putStrLn  "Done"
+
     where
       lower = 16
 
@@ -133,7 +142,7 @@ reverseLoop foo amount = do
     res <- forM [lower..amount] $ \item ->
         testFunc foo $ reverse [1..item]
     putStrLn $ (\(s,f,e) ->   "(" ++ show (amount - lower + 1) ++" tests) Successes: " ++ show s ++ " | Failures: " ++ show f ++ " | Errors: " ++ show e) $ foldl' (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res
-    putStrLn  "Done"
+
     where
       lower = 16
 

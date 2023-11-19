@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               grailSort
-version:            0.1.1.1
+version:            0.2.0.0
 synopsis:           Stable in-place sorting algorithm with time complexity O(n log n)
 
 -- A longer description of the package.
