@@ -78,7 +78,6 @@ import Control.Monad.Primitive (PrimMonad (PrimState))
 import Control.Monad.Extra ( (&&^), ifM, loopM )
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
-import Data.Monoid (Endo(appEndo))
 
 --area of functions one would consider private in other languages
 
@@ -100,7 +99,7 @@ compareV array fst snd op = op <$> VM.read array fst <*> VM.read array snd
 
 
 grailBlockSwap :: PrimMonad m => VM.MVector (PrimState m) a -> Int -> Int -> Int -> m ()
-grailBlockSwap array a b blockLen = do
+grailBlockSwap array a b blockLen =
   loopM (\i -> if i < blockLen
       then do
             VM.swap array (a + i) (b + i)
@@ -111,14 +110,15 @@ grailBlockSwap array a b blockLen = do
 ----how did I fix it
 grailRotate :: PrimMonad m => VM.MVector (PrimState m) a -> Int -> Int -> Int -> m ()
 grailRotate array start leftLen rightLen =
-  loopM (\(start', leftL, rightL) -> if leftL > 0 && rightL > 0
-    then (if leftL <= rightL
-        then do
-          grailBlockSwap array start' (start' + leftL) leftL
-          pure $ Left (start' + leftL, leftL, rightL - leftL)
-        else do
-          grailBlockSwap array (start' + leftL - rightL) (start + leftL) rightL
-          pure $ Left (start', leftL - rightL, rightL) )
+  loopM (\(start, leftLen, rightLen) -> if leftLen > 0 && rightLen > 0
+    then
+      if leftLen <= rightLen
+      then do
+        grailBlockSwap array start (start + leftLen) leftLen
+        pure $ Left (start + leftLen, leftLen, rightLen - leftLen)
+      else do
+        grailBlockSwap array (start + leftLen - rightLen) (start + leftLen) rightLen
+        pure $ Left (start, leftLen - rightLen, rightLen)
     else pure $ Right ()
     ) (start, leftLen, rightLen)
 
@@ -128,14 +128,14 @@ grailInsertSort array start l = let
   begin = start + 1
   end = start + l
   in
-    loopM ( \j -> ifM ( pure $ j < end)
-      (do
+    loopM ( \j -> if j < end
+      then do
           loopM (\i -> ifM (pure (start<i) &&^ compareV array i (i-1) (<)) (do
             VM.swap array i (i-1)
             pure $ Left (i-1))
             (pure $ Right ())) j
-          pure $ Left (j + 1)  )
-      (pure $ Right () ) ) begin
+          pure $ Left (j + 1)
+      else pure $ Right () ) begin
 
 
 
@@ -196,8 +196,7 @@ grailPairwiseSwaps array start length =
       left = start + index - 1
       right = start + index
     in if index < length
-    then do
-      ifM (compareV array left right (>))
+    then ifM (compareV array left right (>))
         (do
           VM.swap array (left - 2)  right
           VM.swap array (right - 2) left
@@ -342,25 +341,6 @@ grailBuildInPlace array start length currentLen bufferLen =
             else pure $ Right ())
 
 
-    -- THE FOLLOWING PART IS FOR FURTHER INSPECTION
-    --let
-    --  fullMerge = 2 * bufferLen
-    --  lastBlock = length `rem` fullMerge
-    --  lastOffset = start' + length - lastBlock
-    --  mergeIndex = lastOffset - fullMerge
---
-    --if lastBlock <= bufferLen
-    --then grailRotate array lastOffset lastBlock bufferLen
-    --else grailMergeBackwards array lastOffset bufferLen (lastBlock - bufferLen) bufferLen
-    --loopM ( \index ->
-    --  if index < start'
-    --  then do
-    --    pure $ Right ()
-    --  else do
-    --    grailMergeBackwards array index bufferLen bufferLen bufferLen
-    --    pure $ Left (index - fullMerge)
-    --  ) mergeIndex
-
 
 
 grailBuildOutOfPlace array start length bufferLen extLen extBuffer extBufferLen = pure ()
@@ -377,8 +357,6 @@ grailBuildBlocks array start length bufferLen extBuffer extBufferLen
     extLen
       | bufferLen < extBufferLen = bufferLen
       | otherwise = until (\x -> x*2 > extBufferLen) (*2) 1
-
-
 
 
 
@@ -407,6 +385,7 @@ grailBlockSelectSort  array firstKey start medianKey blockCount blockLen =
       ) (0, medianKey)
 
 
+
 grailInPlaceBufferReset :: PrimMonad m => VM.MVector (PrimState m) a -> Int -> Int -> Int -> m ()
 grailInPlaceBufferReset array start length bufferOffset =
   let
@@ -425,6 +404,7 @@ grailInPlaceBufferReset array start length bufferOffset =
 grailOutOfPlaceBufferReset array start length bufferOffset = pure ()
 
 
+grailInPlaceBufferRewind :: PrimMonad m => VM.MVector (PrimState m) a -> Int -> Int -> Int -> m ()
 grailInPlaceBufferRewind array start leftBlock buffer =
   loopM (\(leftBlock, buffer) -> if leftBlock >= start
     then do
@@ -451,7 +431,7 @@ grailCountLastMergeBlocks array offset blockCount blockLen =
       lastRightFrag = offset + (blockCount * blockLen)
       prevLeftBlock = lastRightFrag - blockLen
   in
-    loopM (\(blocksToMerge, prevLeftBlock) -> 
+    loopM (\(blocksToMerge, prevLeftBlock) ->
       ifM
         (pure (blocksToMerge < blockCount) &&^ compareV array lastRightFrag prevLeftBlock (<))
         (pure $ Left (blocksToMerge + 1, prevLeftBlock - blockLen))
@@ -477,7 +457,7 @@ grailSmartMerge array start leftLen leftOrigin rightLen bufferOffset currBlockLe
         pure $ Left (left + 1, right, buffer + 1)) (do
         VM.swap array buffer right
         pure $ Left (left, right + 1, buffer + 1))
-      else if middle < left
+      else if left < middle
         then do
           grailInPlaceBufferRewind array left (middle - 1) (end - 1)
           pure $ Right (middle - left, currBlockOrigin)
@@ -493,7 +473,7 @@ grailSmartLazyMerge array start leftLen leftOrigin rightLen currBlockLen currBlo
     middle = start + leftLen
   in do
     cmp <- compareV array (middle - 1) middle compare
-    if | leftOrigin == LEFT && cmp == GT -> loopM (\(start, leftLen, middle, rightLen) -> 
+    if | leftOrigin == LEFT && cmp == GT -> loopM (\(start, leftLen, middle, rightLen) ->
           if leftLen /= 0
           then do
             aStart <- VM.read array start
@@ -503,16 +483,16 @@ grailSmartLazyMerge array start leftLen leftOrigin rightLen currBlockLen currBlo
               (start', rightLen', middle')
                 | mergeLen /= 0 = (start + mergeLen, rightLen - mergeLen, middle + mergeLen)
                 | otherwise     = (start, rightLen, middle)
-            if rightLen' == 0 
+            if rightLen' == 0
             then pure $ Right (leftLen, currBlockOrigin)
-            else do 
+            else do
               (start'', leftLen') <- loopM ( \(start,leftLen) ->
                   ifM (pure (leftLen /= 0) &&^ compareV array start middle' (<=))
                   (pure $ Left (start + 1, leftLen - 1)) (pure $ Right (start, leftLen)))  (start' + 1, leftLen - 1)
               pure $ Left (start'', leftLen', middle', rightLen')
           else pure $ Right $ grailSmartLazyMerge' leftOrigin rightLen
         ) (start, leftLen, middle, rightLen)
-       | leftOrigin /= LEFT && cmp /= LT -> loopM (\(start, leftLen, middle, rightLen) -> 
+       | leftOrigin /= LEFT && cmp /= LT -> loopM (\(start, leftLen, middle, rightLen) ->
           if leftLen /= 0
           then do
             aStart <- VM.read array start
@@ -522,9 +502,9 @@ grailSmartLazyMerge array start leftLen leftOrigin rightLen currBlockLen currBlo
               (start', rightLen', middle')
                 | mergeLen /= 0 = (start + mergeLen, rightLen - mergeLen, middle + mergeLen)
                 | otherwise     = (start, rightLen, middle)
-            if rightLen' == 0 
+            if rightLen' == 0
             then pure $ Right (leftLen, currBlockOrigin)
-            else do 
+            else do
               (start'', leftLen') <- loopM ( \(start,leftLen) ->
                 ifM (pure (leftLen /= 0) &&^ compareV array start middle' (<))
                 (pure $ Left (start + 1, leftLen - 1)) (pure $ Right (start, leftLen)))  (start' + 1, leftLen - 1)
@@ -558,55 +538,56 @@ grailMergeBlocks array firstKey medianKey start blockCount blockLen lastMergeBlo
           buffer = currBlock - blockLen
         in do
           nextBlockOrigin <- grailGetSubarray array (firstKey + keyIndex) medianKey
+          when (nextBlockOrigin == currBlockOrigin) (grailBlockSwap array buffer currBlock currBlockLen)
           (currBlockLen', currBlockOrigin') <- if nextBlockOrigin == currBlockOrigin
-            then do
-              grailBlockSwap array buffer currBlock currBlockLen
-              pure (blockLen, currBlockOrigin)
+            then pure (blockLen, currBlockOrigin)
             else grailSmartMerge array currBlock currBlockLen currBlockOrigin blockLen blockLen currBlockLen currBlockOrigin
-          pure $ Left (nextBlock+blockLen, currBlockLen', currBlockOrigin', keyIndex+1)
+          pure $ Left (nextBlock + blockLen, currBlockLen', currBlockOrigin', keyIndex + 1)
         else let
             currBlock = nextBlock - currBlockLen
             buffer = currBlock - blockLen
             (currBlock', currBlockLen')
                 | currBlockOrigin == RIGHT = (nextBlock, blockLen * lastMergeBlocks)
                 | otherwise = (currBlock, currBlockLen + blockLen * lastMergeBlocks)
-          in do 
+          in do
             if lastLen /= 0
             then do
-              when (currBlockOrigin == RIGHT) (grailBlockSwap array buffer currBlock currBlockLen) 
+              when (currBlockOrigin == RIGHT) (grailBlockSwap array buffer currBlock currBlockLen)
               grailMergeForwards array currBlock' currBlockLen' lastLen blockLen
             else grailBlockSwap array buffer currBlock currBlockLen
-            pure $ Right ()   
+            pure $ Right ()
       ) (nextBlock, currBlockLen, currBlockOrigin, 1)
 
-
+---FIXFIXFIXFIX
 grailLazyMergeBlocks :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> m ()
 grailLazyMergeBlocks array firstKey medianKey start blockCount blockLen lastMergeBlocks lastLen =
-  do
-      currBlockOrigin <- grailGetSubarray array firstKey medianKey
-      loopM (\(nextBlock, currBlockLen, currBlockOrigin, keyIndex) ->
-        if keyIndex < blockCount
-        then let
+  let
+    nextBlock = start + blockLen
+    currBlockLen = blockLen
+  in do
+    currBlockOrigin <- grailGetSubarray array firstKey medianKey
+    loopM (\(nextBlock, currBlockLen, currBlockOrigin, keyIndex) ->
+      if keyIndex < blockCount
+      then let
           currBlock = nextBlock - currBlockLen
         in do
           nextBlockOrigin <- grailGetSubarray array (firstKey + keyIndex) medianKey
-          if nextBlockOrigin == currBlockOrigin
-          then pure $ Left (nextBlock + blockLen, currBlockLen, currBlockOrigin, keyIndex + 1)
-          else do
-            (currBlockLen', currBlockOrigin') <- grailSmartLazyMerge array currBlock currBlockLen currBlockOrigin blockLen currBlockLen currBlockOrigin
-            pure $ Left (nextBlock + blockLen, currBlockLen', currBlockOrigin', keyIndex + 1)
-        else let
-              currBlock = nextBlock - currBlockLen
-              (currBlock', currBlockLen')
-                      | currBlockOrigin == RIGHT = (nextBlock, blockLen * lastMergeBlocks)
-                      | otherwise = (currBlock, currBlockLen + blockLen * lastMergeBlocks)
-          in do
-            when (lastLen /= 0) (grailLazyMerge array currBlock' currBlockLen' lastLen)
-            pure $ Right ()
-        ) (start + blockLen, blockLen, currBlockOrigin, 1)
 
+          (currBlockLen', currBlockOrigin') <- if  nextBlockOrigin == currBlockOrigin 
+            then pure (blockLen, currBlockOrigin)
+            else grailSmartLazyMerge array currBlock currBlockLen currBlockOrigin blockLen currBlockLen currBlockOrigin
 
-grailMergeBlocksOutOfPlace array firstKey medianKey start blockCount blockLen lastMergeBlocks lastLen = pure ()
+          pure $ Left (nextBlock + blockLen, currBlockLen', currBlockOrigin', keyIndex + 1)
+
+      else let
+          currBlock = nextBlock - currBlockLen
+          (currBlock', currBlockLen')
+                  | currBlockOrigin == RIGHT = (nextBlock, blockLen * lastMergeBlocks)
+                  | otherwise = (currBlock, currBlockLen + blockLen * lastMergeBlocks)
+        in do
+          when (lastLen /= 0) (grailLazyMerge array currBlock' currBlockLen' lastLen)
+          pure $ Right ()
+      ) (nextBlock,currBlockLen,currBlockOrigin,1)
 
 
 grailCombineInPlace :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Bool -> m ()
@@ -614,47 +595,44 @@ grailCombineInPlace array firstKey start length subarrayLen blockLen mergeCount 
   let
     fullMerge = 2 * subarrayLen
     blockCount = fullMerge `quot` blockLen
-  in
-    loopM (\mergeIndex ->
+  in loopM (\mergeIndex ->
       if mergeIndex < mergeCount
       then let
         offset = start + (mergeIndex * fullMerge)
-        medianKey = subarrayLen `quot` blockLen
         in do
           grailInsertSort array firstKey blockCount
-          medianKey' <- grailBlockSelectSort array firstKey offset medianKey blockCount blockLen
+
+          medianKey <- grailBlockSelectSort array firstKey offset (subarrayLen `quot` blockLen) blockCount blockLen
 
           if buffer
-          then
-            grailMergeBlocks array firstKey (firstKey + medianKey') offset blockCount blockLen 0 0
-          else
-            grailLazyMergeBlocks array firstKey (firstKey + medianKey') offset blockCount blockLen 0 0
+          then grailMergeBlocks array firstKey (firstKey + medianKey) offset blockCount blockLen 0 0
+          else grailLazyMergeBlocks array firstKey (firstKey + medianKey) offset blockCount blockLen 0 0
+
           pure $ Left (mergeIndex + 1)
       else let
-          offset = start + mergeCount * fullMerge
+          offset = start + (mergeCount * fullMerge)
           blockCount = lastSubarrays `quot` blockLen
-          medianKey = subarrayLen `quot` blockLen
           lastFragment = lastSubarrays - (blockCount * blockLen)
         in do
-          grailInsertSort array firstKey (blockCount +1)
-          medianKey' <- grailBlockSelectSort array firstKey offset medianKey blockCount blockLen
-          
-          lastMergeBlocks <- if  lastFragment /= 0 
-            then grailCountLastMergeBlocks array offset blockCount blockLen
-            else pure 0
+          when (lastSubarrays /= 0) do
+            grailInsertSort array firstKey (blockCount +1)
+            medianKey <- grailBlockSelectSort array firstKey offset (subarrayLen `quot` blockLen) blockCount blockLen
 
-          let
-            smartMerges = blockCount - lastMergeBlocks
-            leftLen = lastMergeBlocks * blockLen
+            lastMergeBlocks <- if  lastFragment /= 0
+              then grailCountLastMergeBlocks array offset blockCount blockLen
+              else pure 0
 
-          if | smartMerges == 0 && buffer ->
-               grailMergeForwards array offset leftLen lastFragment blockLen
-             | smartMerges == 0 && not buffer  ->
-              grailLazyMerge array offset leftLen lastFragment
-             | buffer    ->
-              grailMergeBlocks array firstKey (firstKey + medianKey') offset smartMerges blockLen lastMergeBlocks lastFragment
-             | otherwise -> 
-              grailLazyMergeBlocks array firstKey (firstKey + medianKey') offset smartMerges blockLen lastMergeBlocks lastFragment
+            let
+              smartMerges = blockCount - lastMergeBlocks
+              leftLen = lastMergeBlocks * blockLen
+            if | smartMerges == 0 && buffer ->
+                 grailMergeForwards array offset leftLen lastFragment blockLen
+               | smartMerges == 0 ->
+                 grailLazyMerge array offset leftLen lastFragment
+               | buffer    ->
+                 grailMergeBlocks array firstKey (firstKey + medianKey) offset smartMerges blockLen lastMergeBlocks lastFragment
+               | otherwise ->
+                 grailLazyMergeBlocks array firstKey (firstKey + medianKey) offset smartMerges blockLen lastMergeBlocks lastFragment
 
           when buffer (grailInPlaceBufferReset array start length blockLen)
           pure $ Right ()
@@ -671,58 +649,66 @@ grailCombineBlocks array firstKey start length subarrayLen blockLen buffer extBu
   where
     fullMerge = 2 * subarrayLen
     mergeCount = length `quot` fullMerge
-    lastSubarrays = length - fullMerge * mergeCount
+    lastSubarrays = length - (fullMerge * mergeCount)
     (length', lastSubarrays')
-      | lastSubarrays <= subarrayLen = (length - lastSubarrays, 0)
-      | otherwise = (length, lastSubarrays)
+        | lastSubarrays <= subarrayLen = (length - lastSubarrays, 0)
+        | otherwise = (length, lastSubarrays)
 
 grailLazyMerge :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Int -> m ()
 grailLazyMerge array start leftLen rightLen
-  | leftLen < rightLen =
-      loopM (\(leftLen, rightLen,  start, middle) ->
-        if leftLen /= 0
+  | leftLen < rightLen = let
+    middle = start + leftLen
+    in
+      loopM (\(start, leftLen, rightLen, middle) -> if leftLen /= 0
         then do
           aStart <- VM.read array start
           mergeLen <- grailBinarySearchLeft array middle rightLen aStart
-          (start', rightLen', middle') <- if mergeLen /= 0
-              then do
-                grailRotate array start leftLen mergeLen
-                pure (start + mergeLen, rightLen - mergeLen, middle + mergeLen)
-              else pure (start, rightLen, middle)
+
+          when (mergeLen /= 0) (grailRotate array start leftLen mergeLen)
+          let (start', rightLen', middle')
+                | mergeLen /= 0 = (start + mergeLen, rightLen - mergeLen, middle + mergeLen)
+                | otherwise     = (start, rightLen, middle)
+
           if rightLen' == 0
           then pure $ Right ()
           else do
-              (start'', leftLen') <- loopM ( \(start, leftLen) ->
-                  ifM (pure (leftLen /= 0) &&^ compareV array start middle' (<=))
-                    (pure $ Left (start +1, leftLen -1))
-                    (pure $ Right (start, leftLen))
-                  ) (start' +1, leftLen -1)
-              pure $ Left (leftLen', rightLen', start'', middle')
-          else pure $ Right ()
-      ) (leftLen, rightLen, start, start + leftLen)
-
-  | otherwise =
+            aMid <- VM.read array middle'
+            (start'', leftLen') <- loopM (\(st,ll) -> do
+                aStart <- VM.read array st
+                if ll /= 0 && aStart <= aMid
+                then pure $ Left (st + 1, ll - 1)
+                else pure $ Right (st,ll)
+                ) (start' +1, leftLen -1)
+            pure $ Left (start'', leftLen', rightLen', middle')
+        else pure $ Right ()
+      ) (start, leftLen, rightLen, middle)
+  | otherwise = let
+    end = start + leftLen + rightLen - 1
+    in
       loopM (\(leftLen, rightLen, end) ->
-        if rightLen /= 0
-        then do
+        if rightLen == 0
+        then pure $ Right ()
+        else do
           aEnd <- VM.read array end
           mergeLen <- grailBinarySearchRight array start leftLen aEnd
-          (end', leftLen') <- if mergeLen /= leftLen
-            then do
-              grailRotate array (start + mergeLen) (leftLen - mergeLen) rightLen
-              pure (end - (leftLen - mergeLen), mergeLen)
-            else pure (end, leftLen)
-          let middle = start + leftLen' in if leftLen' == 0
-            then pure $ Right ()
-            else do
-              (rightLen', end'') <- loopM ( \(rightLen, end) ->
-                ifM (pure (rightLen /= 0) &&^ compareV array (middle - 1) end (<=))
-                  (pure $ Left (rightLen -1, end -1))
-                  (pure $ Right (rightLen, end))
-                ) (rightLen -1, end' -1)
-              pure $ Left (leftLen', rightLen', end'')
-        else pure $ Right ()
-      ) (leftLen, rightLen, start + leftLen + rightLen - 1)
+          when (mergeLen /= leftLen) (grailRotate array (start + mergeLen) (leftLen - mergeLen) rightLen)
+          let (end', leftLen')
+                | mergeLen /= leftLen = (end - (leftLen - mergeLen), mergeLen )
+                | otherwise           = (end, leftLen)
+
+          if leftLen' == 0
+          then pure $ Right ()
+          else let middle = start + leftLen' in do
+            aMidM <- VM.read array (middle - 1)
+            (end'', rightLen') <- loopM (\(en,rl) -> do
+              aEnd <- VM.read array en
+              if rl/= 0 && aMidM <= aEnd
+              then pure $ Left (en -1, rl - 1)
+              else pure $ Right (en,rl)
+              ) (end' - 1, rightLen - 1)
+            pure $ Left (leftLen', rightLen', end'')
+      ) (leftLen, rightLen, end)
+
 
 grailLazyStableSort :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> m ()
 grailLazyStableSort array start length = do
@@ -780,25 +766,25 @@ grailCommonSort' array start length extBuffer extBufferLen blockLen keyLen ideal
     (extBuffer', extBufferLen')
       | idealBuffer && isJust extBuffer = (extBuffer, extBufferLen)
       | otherwise = (Nothing, 0)
-  in do 
+  in do
     grailBuildBlocks array (start + bufferEnd) (length - bufferEnd) subarrayLen extBuffer' extBufferLen'
     grailCommonSort'' array start length extBuffer' extBufferLen' blockLen keyLen idealBuffer bufferEnd subarrayLen
 
 
 grailCommonSort'' :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Maybe (VM.MVector (PrimState m) a) -> Int -> Int -> Int -> Bool -> Int -> Int -> m ()
-grailCommonSort'' array start length extBuffer extBufferLen blockLen keyLen idealBuffer bufferEnd =
+grailCommonSort'' array start length extBuffer extBufferLen blockLen keyLen idealBuffer bufferEnd  =
   loopM (\subarrayLen -> if length - bufferEnd > 2 * subarrayLen
       then let
-        subarrayLen' = subarrayLen * 2
-        currentBlockLen = blockLen
-        scrollingBuffer = idealBuffer
-        keyBuffer = keyLen `quot` 2
-        (currentBlockLen', scrollingBuffer')
-            | idealBuffer                                        = (currentBlockLen, scrollingBuffer)
-            | keyBuffer >= ((2 * subarrayLen') `quot` keyBuffer) = (keyBuffer, True)
-            | otherwise                                          = ((2 * subarrayLen') `quot` keyLen, scrollingBuffer)
+            subarrayLen' = subarrayLen * 2
+            currentBlockLen = blockLen
+            scrollingBuffer = idealBuffer
+            keyBuffer = keyLen `quot` 2
+            (currentBlockLen', scrollingBuffer')
+                | idealBuffer                                        = (currentBlockLen, scrollingBuffer)
+                | keyBuffer >= ((2 * subarrayLen') `quot` keyBuffer) = (keyBuffer, True)
+                | otherwise                                          = ((2 * subarrayLen') `quot` keyLen, scrollingBuffer)
         in do
-          grailCombineBlocks array  start (start + bufferEnd) (length - bufferEnd) subarrayLen' currentBlockLen' scrollingBuffer' extBuffer extBufferLen
+          grailCombineBlocks array start (start + bufferEnd) (length - bufferEnd) subarrayLen' currentBlockLen' scrollingBuffer' extBuffer extBufferLen
           pure $ Left subarrayLen'
       else do
         grailInsertSort array start bufferEnd
