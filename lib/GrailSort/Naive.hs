@@ -49,16 +49,16 @@ Special thanks to "The Studio" Discord community!
 -}
 
 {- 
-Mihnik's Haskell "naive" implementation of Grailsort (purely functional, no in-place guarantee)
+Mihnik's Haskell "naive" implementation of Grailsort (no in-place guarantee)
 
 Rewritten without any magic of complicated modules, based on thatsOven's Python version
-NOTE: despite them using name 'list', they are lists
 
 ------ IMPORTANT NOTE: Due to the purely functional approach, every operation on the list creates an accordingly modified copy.
 ------ This can take a lot of memory should the input list be large. Keep that in mind.
 
 Current status: Done
 -}
+
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 

@@ -1,5 +1,9 @@
 # Revision history for grailsort
 
+## 1.0.0.0 -- 2023-12-06
+
+* All the functions have been implemented and the code is working as intended.
+
 ## 0.2.1.0 --2023-12-04
 
 * The vector implementation in-place is finally working; oop methods to be written

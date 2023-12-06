@@ -52,7 +52,8 @@ Special thanks to "The Studio" Discord community!
 Tester for GrailSort's implementation in Haskell by Mihnik a.k.a Hedrick Arrows
 It is quite a mess, I know, but that's because a lot of stuff was tested directly here
 
-Current status: WIP
+Current status: Done
+    - More tests to be implemented in the future
 -}
 
 {-# OPTIONS_GHC -Wno-type-defaults #-}
@@ -66,72 +67,65 @@ module Main (main) where
 import GrailSort ( grailSortInPlace, grailSortStaticOOP, grailSortDynamicOOP )
 import GrailSort.Naive ( grailSortInPlace, grailSortStaticOOP, grailSortDynamicOOP )
 import System.Random.Shuffle ( shuffleM )
-import Control.Monad ( forM, when )
+import Control.Monad ( forM )
 import Control.Exception ( SomeException, catch, evaluate )
 
-import Data.Foldable ( Foldable(foldl') )
+
+--import Data.Maybe (fromJust, isJust)
+--import Control.Monad.ST (runST)
+--import Control.Monad.Primitive (PrimMonad (PrimState))
+--import Control.Monad.Extra ( (&&^), ifM, loopM )
+--import qualified Data.Vector as V
+--import qualified Data.Vector.Mutable as VM
+--
+--import Data.Foldable ( Foldable(foldl') )
 
 allSorted :: Ord a => [a] -> Bool
 allSorted xs = and $ zipWith (<=) xs (tail xs)
 
 main :: IO ()
 main = do
-    --FOR TEST ONLY
-    --let list = [17..100] :: [Int]
-    --let t = [1..32] :: [Int]
-    --testL <- System.Random.Shuffle.shuffleM t
-    --let r a = show $ Main.grailSortInPlace a 0 (length a)
-
-    --let g = trace ("test: " ++ show testL) (r testL)
-    --putStrLn g
-    --let testL = [32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1] --[11,6,7,17,5,28,25,30,29,23,1,12,2,20,18,19,3,15,26,16,13,24,27,22,31,9,8,10,32,4,21,14]
-    --print testL
-    --let bb = Main.grailSortInPlace ([20,19..1]++[20,19..1]) 0 40 
-    --print bb
-
-    --putStrLn "------------------"
-    --print $ GrailSort.Naive.grailSortStaticOOP testL 0 (length testL)
-    
+  
     putStrLn "Shuffled lists (no duplicates)"
     putStrLn "Naive Implementation - In-Place"
     shuffleLoop GrailSort.Naive.grailSortInPlace 100
---
+---
     putStrLn "Naive Implementation - Out-Of-Place (Static)"
     shuffleLoop GrailSort.Naive.grailSortStaticOOP 100
---
+---
     putStrLn "Naive Implementation - Out-Of-Place (Dynamic)"
     shuffleLoop GrailSort.Naive.grailSortDynamicOOP 100
-
+--
     putStrLn "Mutable Vector Implementation - In-Place"
     shuffleLoop GrailSort.grailSortInPlace 100
-
+--
     putStrLn "Mutable Vector Implementation - Out-Of-Place (Static)"
     shuffleLoop GrailSort.grailSortStaticOOP 100
-
+--
     putStrLn "Mutable Vector Implementation - Out-Of-Place (Dynamic)"
     shuffleLoop GrailSort.grailSortDynamicOOP 100
-
-    putStrLn "-----------------------------------"
 --
+    putStrLn "-----------------------------------"
+---
     putStrLn "Reversed lists (no duplicates)"
     putStrLn "Naive Implementation - In-Place"
     reverseLoop GrailSort.Naive.grailSortInPlace 100
---
+---
     putStrLn "Naive Implementation - Out-Of-Place (Static)"
     reverseLoop GrailSort.Naive.grailSortStaticOOP 100
---
+---
     putStrLn "Naive Implementation - Out-Of-Place (Dynamic)"
     reverseLoop GrailSort.Naive.grailSortDynamicOOP 100
-
+--
     putStrLn "Mutable Vector Implementation - In-Place"
     reverseLoop GrailSort.grailSortInPlace 100
-
+--
     putStrLn "Mutable Vector Implementation - Out-Of-Place (Static)"
     reverseLoop GrailSort.grailSortStaticOOP 100
---
+---
     putStrLn "Mutable Vector Implementation - Out-Of-Place (Dynamic)"
     reverseLoop GrailSort.grailSortDynamicOOP 100
-
+--
     putStrLn  "All tasks done"
     
 
@@ -140,7 +134,7 @@ shuffleLoop foo amount = do
     res <- forM [lower..amount] $ \item -> do
         testList <- System.Random.Shuffle.shuffleM [1..item]
         testFunc foo testList
-    putStrLn $ (\(s,f,e) ->  "(" ++ show (amount - lower + 1) ++" tests) Successes: " ++ show s ++ " | Failures: " ++ show f ++ " | Errors: " ++ show e) $ foldl' (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res
+    putStrLn $ (\(s,f,e) ->  "(" ++ show (amount - lower + 1) ++" tests) Successes: " ++ show s ++ " | Failures: " ++ show f ++ " | Errors: " ++ show e) $ foldr (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res
 
     where
       lower = 16
@@ -149,7 +143,7 @@ reverseLoop :: (Enum a, Num t2, Ord a1, Show a1, Show a, Num a) => ([a] -> t2 ->
 reverseLoop foo amount = do
     res <- forM [lower..amount] $ \item ->
         testFunc foo $ reverse [1..item]
-    putStrLn $ (\(s,f,e) ->   "(" ++ show (amount - lower + 1) ++" tests) Successes: " ++ show s ++ " | Failures: " ++ show f ++ " | Errors: " ++ show e) $ foldl' (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res
+    putStrLn $ (\(s,f,e) -> "(" ++ show (amount - lower + 1) ++" tests) Successes: " ++ show s ++ " | Failures: " ++ show f ++ " | Errors: " ++ show e) $ foldr (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res
 
     where
       lower = 16
@@ -190,6 +184,7 @@ testSpot h t i =
     in if h <= ht
         then testSpot ht tt (i + 1)
         else i
+
 
 
 
