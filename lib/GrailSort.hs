@@ -81,15 +81,6 @@ import qualified Data.Vector.Mutable as VM
 
 data Subvector = LEFT | RIGHT deriving (Eq, Show)
 
-----support function because I may need it
-----and I actually use it to simplify some things for myself
-----less-or-equal is here only in case of base value other than 2, might not need to be included here
---logInt :: Int -> Int -> Int
---logInt base value
---  | value <= 1 = 0
---  | otherwise  = logInt base (value `quot` base) + 1
---
-
 ----support function comparing two values in one vector to avoid further code repetition
 ----rewriting LiftA2 into <$> <*> syntax because it seems neater
 compareV :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> (a -> a-> b) -> m b
@@ -384,8 +375,8 @@ grailBuildInPlace vector start length currentLen bufferLen =
 
 
 
-grailBuildOutOfPlace :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Int -> Int -> VM.MVector (PrimState m) a -> Int -> m ()
-grailBuildOutOfPlace vector start length bufferLen extLen extBuffer extBufferLen = 
+grailBuildOutOfPlace :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Int -> Int -> VM.MVector (PrimState m) a  -> m ()
+grailBuildOutOfPlace vector start length bufferLen extLen extBuffer = 
   do 
     vectorCopy vector (start - extLen) extBuffer 0 extLen 
     grailPairwiseWrites vector start length 
@@ -419,7 +410,7 @@ grailBuildOutOfPlace vector start length bufferLen extLen extBuffer extBufferLen
 grailBuildBlocks :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Int -> Maybe (VM.MVector (PrimState m) a) -> Int -> m ()
 grailBuildBlocks vector start length bufferLen extBuffer extBufferLen
   | isJust extBuffer =
-    grailBuildOutOfPlace vector start length bufferLen extLen (fromJust extBuffer) extBufferLen
+    grailBuildOutOfPlace vector start length bufferLen extLen (fromJust extBuffer) 
   | otherwise = do
     grailPairwiseSwaps vector start length
     grailBuildInPlace vector (start - 2) length 2 bufferLen
@@ -528,8 +519,8 @@ grailCountLastMergeBlocks vector offset blockCount blockLen =
       ) (blocksToMerge, prevLeftBlock)
 
 
-grailSmartMerge :: (Ord a, PrimMonad m) => VM.MVector (PrimState m) a -> Int -> Int -> Subvector -> Int -> Int -> Int -> Subvector -> m (Int, Subvector)
-grailSmartMerge vector start leftLen leftOrigin rightLen bufferOffset currBlockLen currBlockOrigin =
+grailSmartMerge :: (Ord a, PrimMonad m) => VM.MVector (PrimState m) a -> Int -> Int -> Subvector -> Int -> Int ->  Subvector -> m (Int, Subvector)
+grailSmartMerge vector start leftLen leftOrigin rightLen bufferOffset currBlockOrigin =
   let
     left = start
     middle = start + leftLen
@@ -556,8 +547,8 @@ grailSmartMerge vector start leftLen leftOrigin rightLen bufferOffset currBlockL
       ) (left, right, buffer)
 
 
-grailSmartLazyMerge :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Subvector -> Int -> Int -> Subvector -> m (Int, Subvector)
-grailSmartLazyMerge vector start leftLen leftOrigin rightLen currBlockLen currBlockOrigin =
+grailSmartLazyMerge :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Subvector -> Int -> Subvector -> m (Int, Subvector)
+grailSmartLazyMerge vector start leftLen leftOrigin rightLen currBlockOrigin =
   let
     middle = start + leftLen
   in do
@@ -663,7 +654,7 @@ grailMergeBlocks vector firstKey medianKey start blockCount blockLen lastMergeBl
           when (nextBlockOrigin == currBlockOrigin) (grailBlockSwap vector buffer currBlock currBlockLen)
           (currBlockLen', currBlockOrigin') <- if nextBlockOrigin == currBlockOrigin
             then pure (blockLen, currBlockOrigin)
-            else grailSmartMerge vector currBlock currBlockLen currBlockOrigin blockLen blockLen currBlockLen currBlockOrigin
+            else grailSmartMerge vector currBlock currBlockLen currBlockOrigin blockLen blockLen currBlockOrigin
           pure $ Left (nextBlock + blockLen, currBlockLen', currBlockOrigin', keyIndex + 1)
         else let
             currBlock = nextBlock - currBlockLen
@@ -697,7 +688,7 @@ grailLazyMergeBlocks vector firstKey medianKey start blockCount blockLen lastMer
 
           (currBlockLen', currBlockOrigin') <- if nextBlockOrigin == currBlockOrigin
             then pure (blockLen, currBlockOrigin)
-            else grailSmartLazyMerge vector currBlock currBlockLen currBlockOrigin blockLen currBlockLen currBlockOrigin
+            else grailSmartLazyMerge vector currBlock currBlockLen currBlockOrigin blockLen currBlockOrigin
 
           pure $ Left (nextBlock + blockLen, currBlockLen', currBlockOrigin', keyIndex + 1)
 
@@ -799,8 +790,8 @@ grailCombineInPlace vector firstKey start length subvectorLen blockLen mergeCoun
 
 
 
-grailCombineOutOfPlace :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> VM.MVector (PrimState m) a -> Int -> m ()
-grailCombineOutOfPlace vector firstKey start length subvectorLen blockLen mergeCount lastSubvectors extBuffer extBufferLen =
+grailCombineOutOfPlace :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> VM.MVector (PrimState m) a -> m ()
+grailCombineOutOfPlace vector firstKey start length subvectorLen blockLen mergeCount lastSubvectors extBuffer =
   let
     fullMerge = 2 * subvectorLen
     blockCount = fullMerge `quot` blockLen
@@ -842,7 +833,7 @@ grailCombineOutOfPlace vector firstKey start length subvectorLen blockLen mergeC
 
 grailCombineBlocks :: (PrimMonad m, Ord a) => VM.MVector (PrimState m) a -> Int -> Int -> Int -> Int -> Int -> Bool -> Maybe (VM.MVector (PrimState m) a) -> Int -> m ()
 grailCombineBlocks vector firstKey start length subvectorLen blockLen buffer extBuffer extBufferLen
-  | buffer && blockLen <= extBufferLen = grailCombineOutOfPlace vector firstKey start length' subvectorLen blockLen mergeCount lastSubvectors' (fromJust extBuffer) extBufferLen
+  | buffer && blockLen <= extBufferLen = grailCombineOutOfPlace vector firstKey start length' subvectorLen blockLen mergeCount lastSubvectors' (fromJust extBuffer)
   | otherwise = grailCombineInPlace vector firstKey start length' subvectorLen blockLen mergeCount lastSubvectors' buffer
   where
     fullMerge = 2 * subvectorLen
