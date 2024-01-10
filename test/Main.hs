@@ -63,90 +63,58 @@ Current status: Done
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Main (main) where
 import GrailSort ( grailSortInPlace, grailSortStaticOOP, grailSortDynamicOOP )
 import GrailSort.Naive ( grailSortInPlace, grailSortStaticOOP, grailSortDynamicOOP )
 import System.Random.Shuffle ( shuffleM )
 import Control.Monad ( forM )
 import Control.Exception ( SomeException, catch, evaluate )
-
-
---import Data.Maybe (fromJust, isJust)
---import Control.Monad.ST (runST)
---import Control.Monad.Primitive (PrimMonad (PrimState))
---import Control.Monad.Extra ( (&&^), ifM, loopM )
---import qualified Data.Vector as V
---import qualified Data.Vector.Mutable as VM
---
---import Data.Foldable ( Foldable(foldl') )
+import Data.Foldable ( Foldable(foldl') )
 
 allSorted :: Ord a => [a] -> Bool
 allSorted xs = and $ zipWith (<=) xs (tail xs)
 
 main :: IO ()
 main = do
-  
+    let max = 100
     putStrLn "Shuffled lists (no duplicates)"
-    putStrLn "Naive Implementation - In-Place"
-    shuffleLoop GrailSort.Naive.grailSortInPlace 100
----
-    putStrLn "Naive Implementation - Out-Of-Place (Static)"
-    shuffleLoop GrailSort.Naive.grailSortStaticOOP 100
----
-    putStrLn "Naive Implementation - Out-Of-Place (Dynamic)"
-    shuffleLoop GrailSort.Naive.grailSortDynamicOOP 100
---
-    putStrLn "Mutable Vector Implementation - In-Place"
-    shuffleLoop GrailSort.grailSortInPlace 100
---
-    putStrLn "Mutable Vector Implementation - Out-Of-Place (Static)"
-    shuffleLoop GrailSort.grailSortStaticOOP 100
---
-    putStrLn "Mutable Vector Implementation - Out-Of-Place (Dynamic)"
-    shuffleLoop GrailSort.grailSortDynamicOOP 100
---
-    putStrLn "-----------------------------------"
----
-    putStrLn "Reversed lists (no duplicates)"
-    putStrLn "Naive Implementation - In-Place"
-    reverseLoop GrailSort.Naive.grailSortInPlace 100
----
-    putStrLn "Naive Implementation - Out-Of-Place (Static)"
-    reverseLoop GrailSort.Naive.grailSortStaticOOP 100
----
-    putStrLn "Naive Implementation - Out-Of-Place (Dynamic)"
-    reverseLoop GrailSort.Naive.grailSortDynamicOOP 100
---
-    putStrLn "Mutable Vector Implementation - In-Place"
-    reverseLoop GrailSort.grailSortInPlace 100
---
-    putStrLn "Mutable Vector Implementation - Out-Of-Place (Static)"
-    reverseLoop GrailSort.grailSortStaticOOP 100
----
-    putStrLn "Mutable Vector Implementation - Out-Of-Place (Dynamic)"
-    reverseLoop GrailSort.grailSortDynamicOOP 100
---
-    putStrLn  "All tasks done"
+    generalLoop max System.Random.Shuffle.shuffleM GrailSort.Naive.grailSortInPlace "In-Place (Naive)"
+    generalLoop max System.Random.Shuffle.shuffleM GrailSort.Naive.grailSortStaticOOP "Out-Of-Place, Static Buffer (Naive)"
+    generalLoop max System.Random.Shuffle.shuffleM GrailSort.Naive.grailSortDynamicOOP "Out-Of-Place, Dynamic Buffer (Naive)"
     
+    generalLoop max System.Random.Shuffle.shuffleM GrailSort.grailSortInPlace "In-Place"
+    generalLoop max System.Random.Shuffle.shuffleM GrailSort.grailSortStaticOOP  "Out-Of-Place, Static Buffer"
+    generalLoop max System.Random.Shuffle.shuffleM GrailSort.grailSortDynamicOOP "Out-Of-Place, Dynamic Buffer"
 
-shuffleLoop :: (Enum a, Num t2, Ord a1, Show a1, Show a, Num a) => ([a] -> t2 -> Int -> [a1]) -> a -> IO ()
-shuffleLoop foo amount = do
-    res <- forM [lower..amount] $ \item -> do
-        testList <- System.Random.Shuffle.shuffleM [1..item]
-        testFunc foo testList
-    putStrLn $ (\(s,f,e) ->  "(" ++ show (amount - lower + 1) ++" tests) Successes: " ++ show s ++ " | Failures: " ++ show f ++ " | Errors: " ++ show e) $ foldr (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res
+    putStrLn "Reversed lists (no duplicates)"
+    generalLoop max (return . reverse) GrailSort.Naive.grailSortInPlace "In-Place (Naive)"
+    generalLoop max (return . reverse) GrailSort.Naive.grailSortStaticOOP  "Out-Of-Place, Static Buffer (Naive)"
+    generalLoop max (return . reverse) GrailSort.Naive.grailSortDynamicOOP "Out-Of-Place, Dynamic Buffer (Naive)"
 
-    where
-      lower = 16
+    generalLoop max (return . reverse) GrailSort.grailSortInPlace "In-Place"
+    generalLoop max (return . reverse) GrailSort.grailSortStaticOOP  "Out-Of-Place, Static Buffer"
+    generalLoop max (return . reverse) GrailSort.grailSortDynamicOOP "Out-Of-Place, Dynamic Buffer"
 
-reverseLoop :: (Enum a, Num t2, Ord a1, Show a1, Show a, Num a) => ([a] -> t2 -> Int -> [a1]) -> a -> IO ()
-reverseLoop foo amount = do
-    res <- forM [lower..amount] $ \item ->
-        testFunc foo $ reverse [1..item]
-    putStrLn $ (\(s,f,e) -> "(" ++ show (amount - lower + 1) ++" tests) Successes: " ++ show s ++ " | Failures: " ++ show f ++ " | Errors: " ++ show e) $ foldr (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res
+    putStrLn  "All tasks done"
 
-    where
-      lower = 16
+
+generalLoop :: (Enum a, Show a1, Foldable t1, Num t2, Ord a1, Num a) => a -> ([a] -> IO (t1 a3)) -> (t1 a3 -> t2 -> Int -> [a1]) -> [Char] -> IO ()
+generalLoop high input sort name = do
+    res <- forM [lower..high] $ \item -> do
+        list <- input [1..item]
+        testFunc sort list
+    printResults name (foldl' (\(a,b,c) (d,e,f) -> (a+d, b+e, c+f)) (0,0,0) res)
+    where lower = 16
+
+printResults :: [Char] -> (Int, Int, Int) -> IO ()
+printResults name (_,0,0) = putStrLn (name ++ " ran succesfully.")
+printResults name (_, f, e) =
+    let
+        fails = if f == 0 then "" else show f ++" failures "
+        errors = if e == 0 then "" else show e ++" errors"
+    in putStrLn (name ++ "encountered problems: " ++ fails ++ errors)
+
 
 testFunc :: (Num a2, Num b, Num c, Show a1, Foldable t1, Num t2, Ord a1) => (t1 a3 -> t2 -> Int -> [a1]) -> t1 a3 -> IO (a2, b, c)
 testFunc foo testList = do

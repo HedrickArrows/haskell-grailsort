@@ -1,5 +1,9 @@
 # Revision history for grailsort
 
+## 1.0.0.1 -- 2024-01-10
+
+* Simplified testing function for ease of adding more algorithms as inputs.
+
 ## 1.0.0.0 -- 2023-12-06
 
 * All the functions have been implemented and the code is working as intended.
