@@ -1,5 +1,9 @@
 # Revision history for grailsort
 
+## 1.0.0.2
+
+* Optimized Naive.grailBlockSwap to not swap elements one by one
+
 ## 1.0.0.1 -- 2024-01-10
 
 * Simplified testing function for ease of adding more algorithms as inputs.
