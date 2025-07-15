@@ -28,6 +28,7 @@ The Holy Grail Sort Project
 
 Project Manager:      Summer Dragonfly
 Project Contributors: 666666t
+                      Amari Calipso
                       Anonymous0726
                       aphitorite
                       Control
@@ -41,7 +42,6 @@ Project Contributors: 666666t
                       MP
                       phoenixbound
                       Spex_guy
-                      thatsOven
                       _fluffyy
                                
                   
