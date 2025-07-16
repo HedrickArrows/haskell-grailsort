@@ -1,6 +1,10 @@
 # Revision history for grailsort
 
-## 1.0.0.2
+## 1.0.1.0 -- 2025-04-01
+
+* Mock GrailSort.Naive optimization by dropping unused elements, minor code cleanup, gs Studio Contributor name update
+
+## 1.0.0.2 -- 2024-04-16
 
 * Optimized Naive.grailBlockSwap to not swap elements one by one
 

@@ -71,6 +71,7 @@ import System.Random.Shuffle ( shuffleM )
 import Control.Monad ( forM )
 import Control.Exception ( SomeException, catch, evaluate )
 import Data.Foldable ( Foldable(foldl') )
+import Data.Sort (sort)
 
 allSorted :: Ord a => [a] -> Bool
 allSorted xs = and $ zipWith (<=) xs (tail xs)
@@ -82,12 +83,12 @@ main = do
     generalLoop max System.Random.Shuffle.shuffleM GrailSort.Naive.grailSortInPlace "In-Place (Naive)"
     generalLoop max System.Random.Shuffle.shuffleM GrailSort.Naive.grailSortStaticOOP "Out-Of-Place, Static Buffer (Naive)"
     generalLoop max System.Random.Shuffle.shuffleM GrailSort.Naive.grailSortDynamicOOP "Out-Of-Place, Dynamic Buffer (Naive)"
-    
+
     generalLoop max System.Random.Shuffle.shuffleM GrailSort.grailSortInPlace "In-Place"
     generalLoop max System.Random.Shuffle.shuffleM GrailSort.grailSortStaticOOP  "Out-Of-Place, Static Buffer"
     generalLoop max System.Random.Shuffle.shuffleM GrailSort.grailSortDynamicOOP "Out-Of-Place, Dynamic Buffer"
 
-    putStrLn "Reversed lists (no duplicates)"
+    putStrLn "\nReversed lists (no duplicates)"
     generalLoop max (return . reverse) GrailSort.Naive.grailSortInPlace "In-Place (Naive)"
     generalLoop max (return . reverse) GrailSort.Naive.grailSortStaticOOP  "Out-Of-Place, Static Buffer (Naive)"
     generalLoop max (return . reverse) GrailSort.Naive.grailSortDynamicOOP "Out-Of-Place, Dynamic Buffer (Naive)"
@@ -95,6 +96,15 @@ main = do
     generalLoop max (return . reverse) GrailSort.grailSortInPlace "In-Place"
     generalLoop max (return . reverse) GrailSort.grailSortStaticOOP  "Out-Of-Place, Static Buffer"
     generalLoop max (return . reverse) GrailSort.grailSortDynamicOOP "Out-Of-Place, Dynamic Buffer"
+
+    putStrLn "\nGrailSort Adversary (no duplicates)"
+    generalLoop max grailSortAdversary GrailSort.Naive.grailSortInPlace "In-Place (Naive)"
+    generalLoop max grailSortAdversary GrailSort.Naive.grailSortStaticOOP  "Out-Of-Place, Static Buffer (Naive)"
+    generalLoop max grailSortAdversary GrailSort.Naive.grailSortDynamicOOP "Out-Of-Place, Dynamic Buffer (Naive)"
+
+    generalLoop max grailSortAdversary GrailSort.grailSortInPlace "In-Place"
+    generalLoop max grailSortAdversary GrailSort.grailSortStaticOOP  "Out-Of-Place, Static Buffer"
+    generalLoop max grailSortAdversary GrailSort.grailSortDynamicOOP "Out-Of-Place, Dynamic Buffer"
 
     putStrLn  "All tasks done"
 
@@ -113,7 +123,7 @@ printResults name (_, f, e) =
     let
         fails = if f == 0 then "" else show f ++" failures "
         errors = if e == 0 then "" else show e ++" errors"
-    in putStrLn (name ++ "encountered problems: " ++ fails ++ errors)
+    in putStrLn (name ++ " encountered problems: " ++ fails ++ errors)
 
 
 testFunc :: (Num a2, Num b, Num c, Show a1, Foldable t1, Num t2, Ord a1) => (t1 a3 -> t2 -> Int -> [a1]) -> t1 a3 -> IO (a2, b, c)
@@ -154,5 +164,72 @@ testSpot h t i =
         else i
 
 
+------- grailsort adversary code
 
+blockSwap :: [a] -> Int -> Int -> Int -> [a]
+blockSwap list a b blockLen =
+    let
+      x = min a b
+      y = max a b
+      diff = y - x
+      rest = blockLen - diff
+    in
+        if x + blockLen > y
+        then take x list ++ take blockLen (drop y list) ++ take diff (drop rest $ cycle (take diff $ drop x list)) ++ drop (y + blockLen) list
+        else take x list ++ take blockLen (drop y list) ++ take (diff - blockLen) (drop (x + blockLen) list) ++ take blockLen (drop x list) ++ drop (y + blockLen) list
 
+rotateGriesMills :: [a] -> Int -> Int -> Int -> [a]
+rotateGriesMills list start leftLen rightLen
+  | leftLen > 0 && rightLen > 0 =
+    if leftLen <= rightLen
+    then let list' = blockSwap list start (start + leftLen) leftLen in
+        rotateGriesMills list' (start + leftLen) leftLen (rightLen - leftLen)
+    else let list' = blockSwap list (start + leftLen - rightLen) (start + leftLen) rightLen in
+        rotateGriesMills list' start (leftLen - rightLen) rightLen
+  | otherwise = list
+
+mockShift :: [a] -> Int -> Int -> [a]
+mockShift list pos to
+  | to - pos > 0 =
+    take pos list ++ mockMove (drop pos list) (to - pos)
+  | otherwise =
+    take to list ++ mockPull (drop to list) (pos - to)
+  where
+    mockMove list@(lh:ls:lt) i
+      | i == 0 = list
+      | otherwise = ls:mockMove (lh:lt) (i-1)
+    mockPull list@(lh:lt) i
+      | i == 0 = list
+      | otherwise = let (sh:st) = mockPull lt (i-1) in (sh:lh:st)
+
+push :: [a] -> Int -> Int -> Int -> [a]
+push list a b bLen = let
+  len = b-a
+  b1 = b - len `rem` bLen
+  m = a + until (\x -> x * 2 >= len) (*2) bLen 
+  len1 = b1 - a
+  m' = a+b1-m
+  list' = rotateGriesMills list (m'-(bLen-2)) (b1-(bLen-1)) b1
+  list'' = mockShift list' a m'
+  list''' = rotateGriesMills list'' a m' b1
+  m'' = a + b1 - m'
+  list'''' = push list''' a m'' bLen
+  in if len1 < 2*bLen
+    then list
+    else if b1 - m <bLen
+      then push list a m bLen
+      else push list'''' m'' b bLen
+
+--adding the line below results in the linter being angry
+--grailSortAdversary :: (MonadRandom-0.6.2:Control.Monad.Random.Class.MonadRandom m,  Ord a) => [a] -> m [a]
+grailSortAdversary list
+  | length list < 16 = return (reverse list)
+  | otherwise = let
+    len = length list
+    bLen = until (\x -> x*x >= len) (*2) 1
+    numKeys = (len - 1) `quot` 2 + 1
+    keys = bLen + numKeys
+    in do
+      list' <- System.Random.Shuffle.shuffleM list
+      let list'' = reverse (Data.Sort.sort (take keys list')) ++ Data.Sort.sort (drop keys list')
+      return $ push list'' keys len bLen
