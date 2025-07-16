@@ -26,7 +26,7 @@
 {- 
 The Holy Grail Sort Project
 
-Project Manager:      Summer Dragonfly
+Project Manager:      Summer Dragonfly  
 Project Contributors: 666666t
                       Amari Calipso
                       Anonymous0726
@@ -51,7 +51,7 @@ Special thanks to "The Studio" Discord community!
 {- 
 Mihnik's Haskell "naive" implementation of Grailsort (no in-place guarantee)
 
-Rewritten without any magic of complicated modules, based on thatsOven's Python version
+Rewritten without any magic of complicated modules, based on Amari Calipso's Python version
 
 ------ IMPORTANT NOTE: Due to the purely functional approach, every operation on the list creates an accordingly modified copy.
 ------ This can take a lot of memory should the input list be large. Keep that in mind.
@@ -61,6 +61,8 @@ Current status: Done
 
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module GrailSort.Naive  (grailSortInPlace, grailSortStaticOOP, grailSortDynamicOOP) where
 import Data.Maybe (isJust, fromJust)
@@ -83,15 +85,24 @@ listWrite list' target source = take target list' ++ [list' !! source] ++ drop (
 
 
 grailSwap :: [a] -> Int -> Int -> [a]
---grailSwap list a b = (take a list) ++ [list !! b] ++ (take (b - a - 1) (drop (a + 1) list)) ++ [list !! a] ++ (drop (b + 1) list)
-grailSwap list x y =
-      let
-        a = min x y
-        b = max x y
-        a' = list !! a
-        b' = list !! b
-      in
-        take a list ++ [b'] ++ drop (a + 1) (take b list) ++ [a'] ++ drop (b + 1) list
+grailSwap list a b
+    | a == b = list
+    | a > b = grailSwap list b a
+    | otherwise = lessCutsSwap'' list a b --take a list ++ [b'] ++ take (b - a - 1) (drop (a + 1) list) ++ [a'] ++ drop (b + 1) list
+    --where
+    --    a' = list !! a
+    --    b' = list !! b
+
+lessCutsSwap'' :: [a] -> Int -> Int -> [a]
+lessCutsSwap'' list a b =
+    let
+        diff = b - a - 1
+        start = take a list
+        (mh:mt) = drop a list
+        mid' = take diff mt
+        (fh:ft) = drop diff mt
+    in
+        start ++ fh:mid' ++ mh:ft
 
 
 
@@ -102,29 +113,10 @@ grailBlockSwap list a b blockLen =
       y = max a b
       diff = y - x
       rest = blockLen - diff
-      --diff = (a + blockLen - b)
-      --beginning = take a list
-      --aBlock = drop a (take (a + blockLen) list)
-      --aBlock1 = drop a (take (a+diff) list)
-      --aBlock2 = drop (a + diff) (take (a + blockLen - diff) list)
-      --bBlock = drop b (take (b + blockLen) list)
-      --between = drop (a + blockLen) (take b list)
-      --finish = drop (b + blockLen) list
     in
-        --if diff <= 0
-        --then beginning ++ bBlock ++ between ++ aBlock ++ finish
-        --else beginning ++ bBlock  ++ aBlock2 ++ aBlock1 ++ finish
-        --beginning ++ bBlock ++ between ++ aBlock ++ finish
-       --take a list ++ drop b (take (b + blockLen) list) ++ drop (a + blockLen) (take b list) ++ drop a (take (a + blockLen) list) ++ drop (b + blockLen) list
         if x + blockLen > y
         then take x list ++ take blockLen (drop y list) ++ take diff (drop rest $ cycle (take diff $ drop x list)) ++ drop (y + blockLen) list
-        else take x list ++ take blockLen (drop y list) ++ drop (x + blockLen) (take y list) ++ take blockLen (drop x list) ++ drop (y + blockLen) list --grailBlockSwap' list a b blockLen
-
-
---grailBlockSwap' :: [a] -> Int -> Int -> Int -> [a]
---grailBlockSwap' list a b blockLen
---    | blockLen == 0 = list
---    | otherwise = grailBlockSwap' (grailSwap list a b) (a+1) (b+1) (blockLen -1)
+        else take x list ++ take blockLen (drop y list) ++ take (diff - blockLen) (drop (x + blockLen) list) ++ take blockLen (drop x list) ++ drop (y + blockLen) list
 
 
 
@@ -132,20 +124,16 @@ grailRotate :: [a] -> Int -> Int -> Int -> [a]
 grailRotate list start leftLen rightLen =
     let
         beginning = take start list
-        leftBlock = drop start (take (start + leftLen) list)
-        rightBlock = drop (start+ leftLen) (take (start + rightLen + leftLen) list)
+        leftBlock = take leftLen (drop start list)
+        rightBlock = take rightLen (drop (start + leftLen) list)
         finish = drop (start + leftLen + rightLen) list
     in
         beginning ++ rightBlock ++ leftBlock ++ finish
-    --take start list ++ drop (start+ leftLen) (take (start + rightLen + leftLen) list) ++ drop start (take (start + leftLen) list) ++ drop (start + leftLen + rightLen) list
--- | leftLen <= 0 || rightLen <= 0 = list
--- | leftLen <= rightLen = grailRotate (grailBlockSwap list start (start + leftLen) leftLen) (start + leftLen) leftLen (rightLen - leftLen)
--- | otherwise = grailRotate (grailBlockSwap list (start + leftLen - rightLen) (start + leftLen) rightLen) start (leftLen - rightLen) rightLen
 
 
 
 grailInsertSort :: (Ord a) => [a] -> Int -> Int -> [a]
-grailInsertSort list start length = grailInsertSort' list start length 1
+grailInsertSort = gnomesortSetup --grailInsertSort list start length = grailInsertSort' list start length 1
 
 grailInsertSort' :: Ord a => [a] -> Int -> Int -> Int -> [a]
 grailInsertSort' list start length item
@@ -157,6 +145,25 @@ grailInsert list start item left right
     | left < start = list
     | list !! left > list !! right = grailInsert (grailSwap list left right) start item (left - 1) (right - 1)
     | otherwise = list
+
+reverseAppend :: [a] -> [a] -> [a]
+reverseAppend [] x = x
+reverseAppend (xh:xt) t = reverseAppend xt (xh:t)
+
+gnomesortSetup :: Ord a => [a] -> Int -> Int -> [a]
+gnomesortSetup [] _ _ = []
+gnomesortSetup list start length = take start list ++ reverseAppend (gnomesort (take length (drop start list))) (drop (start + length) list)
+
+--source: https://rosettacode.org/wiki/Sorting_algorithms/Gnome_sort#Haskell
+gnomesort :: Ord a => [a] -> [a]
+gnomesort [] = []
+gnomesort (x:xs) = gs [x] xs
+ where
+    gs vv@(v:vs) (w:ws)
+        | v<=w = gs (w:vv) ws
+        | otherwise = gs vs (w:v:ws)
+    gs [] (y:ys) = gs [y] ys
+    gs xs [] = xs --reverse xs
 
 
 
@@ -219,9 +226,8 @@ grailCollectKeys' list start length idealKeys keysFound firstKey currKey
 
 
 
-
 grailPairwiseSwaps :: Ord a => [a] -> Int -> Int -> [a]
-grailPairwiseSwaps list start length = grailPairwiseSwaps' list start length 1
+grailPairwiseSwaps = testPairwiseSwapsSetup --grailPairwiseSwaps list start length = grailPairwiseSwaps' list start length 1
 
 grailPairwiseSwaps' :: Ord a => [a] -> Int -> Int -> Int -> [a]
 grailPairwiseSwaps' list start length index
@@ -241,10 +247,23 @@ grailPairwiseSwaps' list start length index
         left = start + index - 1
         right = start + index
 
+testPairwiseSwapsSetup :: Ord a => [a] ->Int -> Int -> [a]
+testPairwiseSwapsSetup list start length = take (start - 2) list ++ testPairwiseSwaps (drop (start - 2) list) length
+
+testPairwiseSwaps :: Ord a => [a] -> Int -> [a]
+testPairwiseSwaps list length
+    | length > 1 = let (a:b:c:d:tt) = list in
+        if c > d
+        then d:c:testPairwiseSwaps (b:a:tt) (length-2)
+        else c:d:testPairwiseSwaps (a:b:tt) (length-2)
+    | otherwise = if length == 1
+        then let (a:b:c:t) = list in c:b:a:t
+        else list
+
 
 
 grailPairwiseWrites :: Ord a => [a] -> Int -> Int -> [a]
-grailPairwiseWrites list start length = grailPairwiseWrites' list start length 1
+grailPairwiseWrites = testPairwisewritesSetup --grailPairwiseWrites list start length = grailPairwiseWrites' list start length 1
 
 grailPairwiseWrites' :: Ord a => [a] -> Int -> Int -> Int -> [a]
 grailPairwiseWrites' list start length index
@@ -264,16 +283,39 @@ grailPairwiseWrites' list start length index
         left = start + index - 1
         right = start + index
 
+testPairwisewritesSetup :: Ord a => [a] ->Int -> Int -> [a]
+testPairwisewritesSetup list start length = take (start - 2) list ++ testPairwiseWrites (drop (start - 2) list) length
+
+testPairwiseWrites :: Ord a => [a] -> Int -> [a]
+testPairwiseWrites list length
+    | length > 1 = let (_:_:c:d:tt) = list in
+        if c > d
+        then d:c:testPairwiseWrites (c:d:tt) (length-2)
+        else c:d:testPairwiseWrites (c:d:tt) (length-2)
+    | otherwise = if length == 1
+        then let (_:b:c:t) = list in c:b:c:t
+        else list
+
 
 
 grailMergeForwards :: (Ord a) => [a] -> Int -> Int -> Int -> Int -> [a]
-grailMergeForwards list start leftLen rightLen bufferOffset =
-    let left   = start
-        middle = start + leftLen
+grailMergeForwards = testMergeForwardsSetup --list start leftLen rightLen bufferOffset =
+    --let left   = start
+    --    middle = start + leftLen
+    --    right  = middle
+    --    end    = middle + rightLen
+    --    buffer = start - bufferOffset
+    --in grailMergeForwards' list left middle right end buffer
+
+testMergeForwardsSetup :: Ord a => [a] -> Int -> Int -> Int -> Int -> [a]
+testMergeForwardsSetup list start leftLen rightLen bufferOffset =
+    let startCut = start - bufferOffset
+        left   = bufferOffset
+        middle = left + leftLen
         right  = middle
         end    = middle + rightLen
-        buffer = start - bufferOffset
-    in grailMergeForwards' list left middle right end buffer
+        buffer = 0
+    in take startCut list ++ grailMergeForwards' (drop startCut list) left middle right end buffer
 
 grailMergeForwards' :: (Ord a) => [a] -> Int -> Int -> Int -> Int -> Int -> [a]
 grailMergeForwards' list left middle right end buffer
@@ -293,14 +335,14 @@ grailMergeBackwards list start leftLen rightLen bufferOffset =
         middle = left
         right  = middle + rightLen
         buffer = right + bufferOffset
-    in grailMergeBackwards' list start leftLen rightLen bufferOffset end left middle right buffer
+    in grailMergeBackwards' list end left middle right buffer
 
-grailMergeBackwards' :: (Ord a) => [a] -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> [a]
-grailMergeBackwards' list start leftLen rightLen bufferOffset end left middle right buffer
+grailMergeBackwards' :: (Ord a) => [a] -> Int -> Int ->  Int -> Int -> Int -> [a]
+grailMergeBackwards' list end left middle right buffer
     | left > end =
         if right == middle || list !! left > list !! right
-        then grailMergeBackwards' (grailSwap list buffer left) start leftLen rightLen bufferOffset end (left - 1) middle right (buffer - 1)
-        else grailMergeBackwards' (grailSwap list buffer right) start leftLen rightLen bufferOffset end left middle (right - 1) (buffer - 1)
+        then grailMergeBackwards' (grailSwap list buffer left) end (left - 1) middle right (buffer - 1)
+        else grailMergeBackwards' (grailSwap list buffer right) end left middle (right - 1) (buffer - 1)
     | right /= buffer = grailMergeBackwards'' list middle right buffer
     | otherwise = list
 
@@ -379,7 +421,6 @@ grailBuildInPlace' list start length currentLen bufferLen mergeLen
 
 
 
-
 grailBuildOutOfPlace :: Ord a => [a] -> Int -> Int -> Int -> Int -> [a] -> Int -> ([a], Maybe [a])
 grailBuildOutOfPlace list start length bufferLen extLen extBuffer extBufferLen = --([], [])
     let
@@ -412,7 +453,7 @@ grailBuildOutOfPlace' list start length bufferLen extLen extBuffer extBufferLen 
 
 
 grailBuildBlocks :: Ord a => [a] -> Int -> Int -> Int -> Maybe [a] -> Int -> ([a], Maybe [a])
-grailBuildBlocks list start length bufferLen extBuffer extBufferLen -- = case extBuffer of
+grailBuildBlocks list start length bufferLen extBuffer extBufferLen
     | isJust extBuffer =
             grailBuildOutOfPlace list start length bufferLen extLen (fromJust extBuffer) extBufferLen
     | otherwise =
@@ -425,7 +466,6 @@ grailBuildBlocks list start length bufferLen extBuffer extBufferLen -- = case ex
 
 
 
-
 --thanks to Taihennami for finding where the sort goes wrong
 grailBlockSelectSort :: Ord a => [a] -> Int -> Int -> Int -> Int -> Int -> ([a], Int)
 grailBlockSelectSort list firstKey start medianKey blockCount blockLen =
@@ -433,8 +473,6 @@ grailBlockSelectSort list firstKey start medianKey blockCount blockLen =
         firstBlock = 0
     in
         grailBlockSelectSort'  list firstKey start medianKey blockCount blockLen firstBlock
-
-
 
 grailBlockSelectSort' :: Ord a => [a] -> Int -> Int -> Int -> Int -> Int -> Int -> ([a], Int)
 grailBlockSelectSort'  list firstKey start medianKey blockCount blockLen firstBlock
@@ -463,7 +501,6 @@ grailBlockSelectSort'' list firstKey start blockCount firstBlock selectBlock blo
         in
             grailBlockSelectSort'' list firstKey start blockCount firstBlock selectBlock' blockLen (currBlock + 1)
     | otherwise = selectBlock
-
 
 
 
@@ -511,7 +548,6 @@ grailInPlaceBufferRewind list start leftBlock buffer
         in
             grailInPlaceBufferRewind list' start (leftBlock-1) (buffer - 1)
     | otherwise = list
-
 
 
 
@@ -611,7 +647,9 @@ grailSmartLazyMergeLeft list start leftLen leftOrigin rightLen middle currBlockL
         in
             if rightLen == 0
             then (list', leftLen, currBlockOrigin)
-            else let (start'', leftLen') = until (\(s, lL)-> not (lL /= 0 && list!!s <= list!!middle))
+            else let
+                midVal = list!!middle
+                (start'', leftLen') = until (\(s, lL)-> not (lL /= 0 && list!!s <= midVal))
                         (\(s, lL) -> (s+1, lL -1)) (start'+1, leftLen-1)
                 in
                     grailSmartLazyMergeLeft list' start'' leftLen' leftOrigin rightLen' middle' currBlockLen currBlockOrigin
@@ -653,7 +691,7 @@ grailSmartMergeOutOfPlace list start leftLen leftOrigin rightLen bufferOffset = 
     then grailSmartMergeOutOfPlace' list start leftLen leftOrigin rightLen bufferOffset left middle right end buffer (<=)
     else grailSmartMergeOutOfPlace' list start leftLen leftOrigin rightLen bufferOffset left middle right end buffer (<)
 
-grailSmartMergeOutOfPlace' :: [t1] -> Int -> Int -> Sublist -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> (t1 -> t1 -> Bool) -> ([t1], Int, Sublist)
+grailSmartMergeOutOfPlace' :: [a] -> Int -> Int -> Sublist -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> (a -> a -> Bool) -> ([a], Int, Sublist)
 grailSmartMergeOutOfPlace' list start leftLen leftOrigin rightLen bufferOffset left middle right end buffer op
     | left < middle && right < end = let
         buffer' = buffer + 1
@@ -803,7 +841,7 @@ grailCombineInPlace' list firstKey start length sublistLen blockLen mergeCount l
         (list'', medianKey') = grailBlockSelectSort list' firstKey offset medianKey blockCount blockLen
 
         list'''
-            | buffer = grailMergeBlocks list'' firstKey (firstKey + medianKey') offset blockCount blockLen 0 0
+            | buffer    = grailMergeBlocks list'' firstKey (firstKey + medianKey') offset blockCount blockLen 0 0
             | otherwise = grailLazyMergeBlocks list'' firstKey (firstKey + medianKey') offset blockCount blockLen 0 0
         in
             grailCombineInPlace' list''' firstKey start length sublistLen blockLen mergeCount lastSublists buffer fullMerge blockCount (mergeIndex + 1)
@@ -905,7 +943,6 @@ grailCombineBlocks list firstKey start length sublistLen blockLen buffer extBuff
 
 
 
-
 grailLazyMerge :: Ord a => [a] -> Int -> Int -> Int -> [a]
 grailLazyMerge list start leftLen rightLen
     | leftLen < rightLen = let
@@ -956,21 +993,21 @@ grailLazyMergeRight list start leftLen rightLen end
 grailLazyStableSort :: Ord a => [a] -> Int -> Int -> [a]
 grailLazyStableSort list start length =
     let
-        list' = grailLazyStableSort' list start length 1
+        list' = take start list ++ grailLazyStableSort' (drop start list) length --grailLazyStableSort' list start length 1
         mergeLen = 2
     in
         grailLazyStableSort'' list' start length mergeLen
 
-grailLazyStableSort' :: Ord a => [a] -> Int -> Int -> Int -> [a]
-grailLazyStableSort' list start length index
-    | index < length =
-        let
-            left = start + index -1
-            right = start + index
-        in
-            if (list !! left) > (list !! right)
-            then grailLazyStableSort' (grailSwap list left right) start length (index + 2)
-            else grailLazyStableSort' list start length (index + 2)
+grailLazyStableSort' :: Ord a => [a] -> Int -> [a] --Int -> Int -> [a]
+grailLazyStableSort' list@(a:b:t) length --list start length index
+    | length > 1 =
+      --  let
+      --      left = start + index -1
+      --      right = start + index
+      --  in
+            if a > b--(list !! left) > (list !! right)
+            then b:a:grailLazyStableSort' t (length - 2) --grailLazyStableSort' (grailSwap list left right) start length (index + 2)
+            else a:b:grailLazyStableSort' t (length - 2) --grailLazyStableSort' list start length (index + 2)
     | otherwise = list
 
 grailLazyStableSort'' :: Ord a => [a] -> Int -> Int -> Int -> [a]
@@ -1029,9 +1066,9 @@ grailCommonSort'' list start length extBuffer extBufferLen blockLen keyLen ideal
             scrollingBuffer = idealBuffer
             keyBuffer = keyLen `quot` 2
             (currentBlockLen', scrollingBuffer')
-                | idealBuffer                                        = (currentBlockLen, scrollingBuffer)
+                | idealBuffer                                       = (currentBlockLen, scrollingBuffer)
                 | keyBuffer >= ((2 * sublistLen') `quot` keyBuffer) = (keyBuffer, True)
-                | otherwise                                          = ((2 * sublistLen') `quot` keyLen, scrollingBuffer)
+                | otherwise                                         = ((2 * sublistLen') `quot` keyLen, scrollingBuffer)
             (list', extBuffer') =  grailCombineBlocks list start (start + bufferEnd) (length - bufferEnd) sublistLen' currentBlockLen' scrollingBuffer' extBuffer extBufferLen
         in
             grailCommonSort'' list' start length extBuffer' extBufferLen blockLen keyLen idealBuffer bufferEnd sublistLen'
@@ -1059,7 +1096,6 @@ grailSortStaticOOP list start length
         extBufferLen = 512
         extBuffer = replicate extBufferLen var
     in grailCommonSort list start length (Just extBuffer) extBufferLen
-
 
 -- external buffer with length of smallest power of 2 larger than square root of input's length used 
 grailSortDynamicOOP :: Ord a => [a] -> Int -> Int -> [a]
