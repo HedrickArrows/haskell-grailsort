@@ -51,7 +51,7 @@ Special thanks to "The Studio" Discord community!
 {- 
 Hedrick Arrows's Haskell implementation of Grailsort, a.k.a Mihnik tries his best
 
-Rewritten in a "dying language" for fun, based on thatsOven's Python version and Morwenn's C++ rewrite of GrailSort
+Rewritten in a "dying language" for fun, based on Amari Calipso's Python version and Morwenn's C++ rewrite of GrailSort
 (just in case, I know this language isn't dying, why else would I be using it)
 
 Current status: Done
